@@ -1,0 +1,22 @@
+{
+  "default": {
+    "request": {
+      "type": "json",
+      "header": [{
+        "key": ".",
+        "actions": [{
+          "action": "fake_flag"
+        }]
+      }],
+      "url": [{
+        "key": "host",
+        "actions": [{
+          "action": "set",
+          "params": [
+            "api.github.com"
+          ]
+        }]
+      }]
+    }
+  }
+}

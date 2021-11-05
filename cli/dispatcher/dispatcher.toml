@@ -1,0 +1,45 @@
+[job]
+rate = 1.0   # 回放倍数，如2.0，表示一次请求回放两次
+speed = 1.0  # 回放速率，如2.0，表示原来10秒内有5次请求发生，回放时会把这些请求在5秒回放完
+begin = 1532058494000
+end = 1532076494000
+
+[fetcher]
+type = "file"
+
+[fetcher.file]
+path = "datum-hub.log"
+
+[fetcher.sls]
+access_key_id = ""
+access_key_secret = ""
+region = "xxxx.log.aliyuncs.com"
+project = "havok-project"
+logstore = "havok-project_prod"
+expression = "RPC-server method"
+concurrency = 20
+pre-download = 5000
+
+[fetcher.kafka]
+brokers = ["127.0.0.1:9092", "127.0.0.1:9192"]
+topic = "havok_project_test"
+offset = -2    # oldest
+
+[analyzer]
+name = "base"
+[analyzer.handler]
+enable = ["UPayGatewayFileLog"]
+Plugin = ["/Users/ybbrichard/GolandProjects/src/git.wosai-inc.com/ep/havok-plugin/plugin_upay_gateway.so"]
+
+[service]  # 暂时无效
+http = ":16200"
+grpc = ":16300"
+
+[reporter]
+[reporter.style]
+name = "influxdb"
+[reporter.influxdb]
+url = "http://localhost:8086"
+database = "stress-test"
+user = ""
+password = ""
