@@ -1,9 +1,9 @@
 # Havok - 分布式日志回放系统
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/wosai/havok)](https://goreportcard.com/report/github.com/wosai/havok) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/WoSai/havok)](https://goreportcard.com/report/github.com/WoSai/havok) 
 ![.github/workflows/ci.yml](https://github.com/WoSai/havok/workflows/.github/workflows/ci.yml/badge.svg)
-[![codecov](https://codecov.io/gh/wosai/havok/branch/master/graph/badge.svg)](https://codecov.io/gh/wosai/havok) 
-[![GoDoc](https://godoc.org/github.com/wosai/havok?status.svg)](https://godoc.org/github.com/wosai/havok)
+[![codecov](https://codecov.io/gh/WoSai/havok/branch/master/graph/badge.svg)](https://codecov.io/gh/WoSai/havok) 
+[![GoDoc](https://godoc.org/github.com/WoSai/havok?status.svg)](https://godoc.org/github.com/WoSai/havok)
 
 
 ## 1. 系统架构
