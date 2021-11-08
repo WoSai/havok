@@ -8,28 +8,28 @@ end = 1532076494000
 type = "file"
 
 [fetcher.file]
-path = "datum-hub.log"
+path = "havok-project.log"
 
 [fetcher.sls]
 access_key_id = ""
 access_key_secret = ""
 region = "xxxx.log.aliyuncs.com"
 project = "havok-project"
-logstore = "havok-project_prod"
+logstore = "havok-project-logstore"
 expression = "RPC-server method"
 concurrency = 20
 pre-download = 5000
 
 [fetcher.kafka]
 brokers = ["127.0.0.1:9092", "127.0.0.1:9192"]
-topic = "havok_project_test"
+topic = "havok_project_topic"
 offset = -2    # oldest
 
 [analyzer]
 name = "base"
 [analyzer.handler]
-enable = ["UPayGatewayFileLog"]
-Plugin = ["/Users/ybbrichard/GolandProjects/src/git.wosai-inc.com/ep/havok-plugin/plugin_upay_gateway.so"]
+enable = ["plugin_name"]
+Plugin = ["./plugin_name.so"]
 
 [service]  # 暂时无效
 http = ":16200"

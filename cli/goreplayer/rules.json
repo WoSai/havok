@@ -4,9 +4,7 @@
       "type": "json",
       "header": [{
         "key": ".",
-        "actions": [{
-          "action": "fake_flag"
-        }]
+        "actions": []
       }],
       "url": [{
         "key": "host",

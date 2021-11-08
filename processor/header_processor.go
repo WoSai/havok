@@ -90,9 +90,6 @@ func (hhp *HTTPHeaderProcessor) Act(session *types.Session, h interface{}) (inte
 				}
 				session.Put(v, header.Get(unit.Key))
 
-			case "fake_flag":
-				header["fake"] = []string{"1"}
-
 			case actionRandString:
 				length := 8
 				if len(action.Params) > 0 {

@@ -27,10 +27,6 @@ var (
 			Actions: []*Actor{{"get_from_session", []interface{}{"x-log-id"}}},
 		},
 		{
-			Key:     "*",
-			Actions: []*Actor{{"fake_flag", nil}},
-		},
-		{
 			Key:     "to-delete",
 			Actions: []*Actor{{"delete", nil}},
 		},
@@ -45,10 +41,6 @@ var (
 		{
 			Key:     "key-uuid",
 			Actions: []*Actor{{"uuid", nil}},
-		},
-		{
-			Key:     "*",
-			Actions: []*Actor{{"fake_flag", nil}},
 		},
 		{
 			Key:     "U-A",
@@ -82,7 +74,6 @@ func TestHTTPHeaderProcessor_Act(t *testing.T) {
 	assert.Equal(t, header.Get("User-Agent"), "MicroMessage")
 	assert.Equal(t, header.Get("X-Id"), "abc")
 	assert.Equal(t, header.Get("to-delete"), "")
-	assert.Equal(t, header["fake"], []string{"1"})
 	assert.Equal(t, header.Get("Cookies"), data)
 	assert.Contains(t, header["U-A"], "Alipay1")
 	assert.Contains(t, header["U-A"], "Alipay2")

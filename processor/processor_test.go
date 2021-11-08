@@ -332,11 +332,11 @@ func TestRegisterGlobalAssertFunc1(t *testing.T) {
 }
 
 func TestHTMLProcessor_Act(t *testing.T) {
-	d := "window.variable.push('qrCodeId', '16030600036065765931')" +
-		".push('browser', 'WEIXIN').push('browserName', '微信').push('memberId', 'E67R6dEFapt2w5nsHzTJD0suZkKtzMpF').push('merchantId', '03b1d2bf-3152-4da8-a10a-a93f6e00c90e')"
+	d := "window.variable.push('codeId', '4756935016354312')" +
+		".push('browser', 'WEIXIN').push('browserName', '微信').push('memberId', 'E67EFapt2w5zTJD0suZtzMpF').push('merchantId', 'fc16e684-409a-4a38-9a7e-71eb9b283f4a')"
 	var units = []*Unit{
 		{
-			Key: "one", Actions: []*Actor{{"regexp_picker", []interface{}{"qrCodeId', '(\\d+)'", int64(1), "cot-open-id"}}},
+			Key: "one", Actions: []*Actor{{"regexp_picker", []interface{}{"codeId', '(\\d+)'", int64(1), "cot-open-id"}}},
 		},
 	}
 	s := types.NewSession()
@@ -346,7 +346,7 @@ func TestHTMLProcessor_Act(t *testing.T) {
 
 	val, f := s.Get("cot-open-id")
 	assert.True(t, f)
-	assert.Equal(t, val, "16030600036065765931")
+	assert.Equal(t, val, "4756935016354312")
 }
 
 func TestHTMLProcessor_Assert0(t *testing.T) {

@@ -60,7 +60,6 @@ type (
 			Enable []string
 			Plugin []string
 		}
-
 	}
 
 	service struct {

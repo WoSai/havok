@@ -5,8 +5,7 @@ Processor用户手册
 
 #### Key
 
-在该`Processor`下，所有的`key`是值http请求头的key，如`Content-Type: application/json`中的`Content-Type`
-
+sh
 
 #### Action
 
@@ -18,7 +17,6 @@ Processor用户手册
 | `delete` | N/A | 从请求头删除该键值对|
 | `get_from_session` | `key: string` | 从`*Session`查询key的值，并设置值请求头 |
 | `store_into_session` | `key: string` | 取出请求头的值并存入`*Session`，键值为`key` |
-| `fake_flag` | N/A | 在请求头添加压测标示 |
 | `rand_string` | `length: int` | 生成长度为length的随机字符串，设置至请求头 |
 |`current_timestamp`| `precision: string` | 生成当前的时间戳，精度为precision, 设置至请求头|
 | `uuid` | N/A | 生成uuid，设置至请求头|
@@ -218,17 +216,6 @@ Processor用户手册
 | `contain` | values: string... | 所有values的值都必须被包含|
 
 ### ExtraProcessor
-
-#### Key
-
-主要作为手动触发send使用，目前针对ExtraProcessor所有操作Key都是没用的，可以设置为`.`, 建议这边所有的action均为外部手动注册(下面以门店码`qrcode_extra_send`为例)
- > 目前`qrcode_extra_send`该action返回的格式为`[]map[string][]dispatcher.LogRecord{}`类型, 可以手动注册多个extra action，即同一个ActionType下所有`[]dispatcher.LogRecord{}`均会异步发送，但不同的ActionType之间会同步阻塞发送，但会共用同一个`*Session`，所有的`dispatcher.LogRecord{}`在发送时仍然会继续进入Send方法，会继续进行对应各个Processor操作。
-
-#### Action
-
-|action| params | 备注 |
-| ---- | ----- | ---- |
-| `qrcode_extra_send` | `url: string; method: string; header: string; body: string` | header格式"one:3;two:4", 如果body为空，则设置为"" |
 
 #### Assert
 
