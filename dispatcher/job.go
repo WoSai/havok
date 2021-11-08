@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/WoSai/havok/protobuf"
+	pb "github.com/wosai/havok/protobuf"
 	"go.uber.org/zap"
 )
 

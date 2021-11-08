@@ -1,7 +1,7 @@
 package processor
 
 import (
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 )
 

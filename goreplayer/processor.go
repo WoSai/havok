@@ -3,7 +3,7 @@ package replayer
 import (
 	"io/ioutil"
 
-	"github.com/WoSai/havok/processor"
+	"github.com/wosai/havok/processor"
 )
 
 type (

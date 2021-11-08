@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/types"
 	"github.com/BurntSushi/toml"
 	"github.com/buger/jsonparser"
 	jsoniter "github.com/json-iterator/go"

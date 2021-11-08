@@ -2,7 +2,7 @@ package dispatcher
 
 import (
 	"errors"
-	pb "github.com/WoSai/havok/protobuf"
+	pb "github.com/wosai/havok/protobuf"
 	"os"
 	"time"
 

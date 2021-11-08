@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/WoSai/havok/logger"
+	"github.com/wosai/havok/logger"
 	"github.com/json-iterator/go"
 	"go.uber.org/zap"
 )

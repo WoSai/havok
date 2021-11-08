@@ -14,7 +14,7 @@ import (
 
 	"errors"
 
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 )
 

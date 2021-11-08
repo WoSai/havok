@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/types"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

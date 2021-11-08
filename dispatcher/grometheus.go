@@ -5,7 +5,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"sync"
 	"net/http"
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/types"
 	"encoding/json"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

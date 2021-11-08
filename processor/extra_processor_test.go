@@ -2,8 +2,8 @@ package processor
 
 import (
 	"testing"
-	"github.com/WoSai/havok/types"
-	"github.com/WoSai/havok/protobuf"
+	"github.com/wosai/havok/types"
+	"github.com/wosai/havok/protobuf"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/types"
 	"github.com/buger/jsonparser"
 	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"

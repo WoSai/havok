@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "github.com/WoSai/havok/protobuf"
+	pb "github.com/wosai/havok/protobuf"
 	sls "github.com/aliyun/aliyun-log-go-sdk"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"

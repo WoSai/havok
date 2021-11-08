@@ -9,10 +9,10 @@ import (
 	"runtime"
 
 	"github.com/BurntSushi/toml"
-	"github.com/WoSai/havok/apollo"
-	"github.com/WoSai/havok/dispatcher"
-	"github.com/WoSai/havok/dispatcher/helper"
-	pb "github.com/WoSai/havok/protobuf"
+	"github.com/wosai/havok/apollo"
+	"github.com/wosai/havok/dispatcher"
+	"github.com/wosai/havok/dispatcher/helper"
+	pb "github.com/wosai/havok/protobuf"
 	"go.uber.org/zap"
 )
 

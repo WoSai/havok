@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	dispatcher "github.com/WoSai/havok/protobuf"
-	"github.com/WoSai/havok/types"
+	dispatcher "github.com/wosai/havok/protobuf"
+	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 	"reflect"
 )

@@ -3,7 +3,7 @@ package processor
 import (
 	"testing"
 	"github.com/stretchr/testify/assert"
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/types"
 	"net/url"
 	"errors"
 )

@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	pb "github.com/WoSai/havok/protobuf"
+	pb "github.com/wosai/havok/protobuf"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )

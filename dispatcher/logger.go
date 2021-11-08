@@ -1,7 +1,7 @@
 package dispatcher
 
 import (
-	"github.com/WoSai/havok/logger"
+	"github.com/wosai/havok/logger"
 	"go.uber.org/zap"
 )
 

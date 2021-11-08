@@ -1,4 +1,4 @@
-module github.com/WoSai/havok
+module github.com/wosai/havok
 
 go 1.16
 

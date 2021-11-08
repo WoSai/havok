@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/WoSai/havok/protobuf"
+	pb "github.com/wosai/havok/protobuf"
 	"github.com/stretchr/testify/assert"
 )
 

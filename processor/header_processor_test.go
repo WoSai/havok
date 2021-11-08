@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"errors"
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/types"
 	"github.com/stretchr/testify/assert"
 )
 

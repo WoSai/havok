@@ -1,8 +1,8 @@
 package processor
 
 import (
-	"github.com/WoSai/havok/logger"
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/logger"
+	"github.com/wosai/havok/types"
 )
 
 type (

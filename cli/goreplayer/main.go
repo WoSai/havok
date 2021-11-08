@@ -7,8 +7,8 @@ import (
 
 	"encoding/json"
 	"fmt"
-	"github.com/WoSai/havok/apollo"
-	"github.com/WoSai/havok/goreplayer"
+	"github.com/wosai/havok/apollo"
+	"github.com/wosai/havok/goreplayer"
 	"go.uber.org/zap"
 )
 

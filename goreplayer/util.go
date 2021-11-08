@@ -1,6 +1,6 @@
 package replayer
 
-import "github.com/WoSai/havok/processor"
+import "github.com/wosai/havok/processor"
 
 func generateReplayerId() string {
 	prefix := "replayer-"

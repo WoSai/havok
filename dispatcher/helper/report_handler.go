@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/WoSai/havok/dispatcher"
-	"github.com/WoSai/havok/types"
+	"github.com/wosai/havok/dispatcher"
+	"github.com/wosai/havok/types"
 	influx "github.com/influxdata/influxdb/client/v2"
 	"github.com/json-iterator/go"
 	"go.uber.org/zap"
