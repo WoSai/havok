@@ -4,9 +4,8 @@ on: [push, pull_request]
 jobs:
   ci:
     runs_on: ubuntu-latest
-
     steps:
-      - users: actions/setup-go@v2
+      - uses: actions/setup-go@v2
         name: Set up Go 1.16
         with:
           go-version: 1.16
