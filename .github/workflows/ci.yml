@@ -3,7 +3,7 @@ on: [push, pull_request]
 
 jobs:
   ci:
-    runs_on: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v2
         name: Set up Go 1.16
