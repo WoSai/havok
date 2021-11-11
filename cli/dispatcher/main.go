@@ -31,10 +31,10 @@ var (
 
 func init() {
 	flag.StringVar(&configurationFile, "config", "./cli", "dispatcher配置文件")
-	flag.StringVar(&configurationApolloHost, "apollo_host", "beta.apollo.config.shouqianba.com", "apollo host")
-	flag.StringVar(&configurationApolloAppID, "apollo_appid", "16001", "apollo appid")
-	flag.StringVar(&configurationApolloNameSpace, "apollo_namespace", "test.dev", "apollo namespace")
-	flag.StringVar(&configurationApolloKey, "apollo_key", "jty.yml", "apollo key name")
+	flag.StringVar(&configurationApolloHost, "apollo_host", "", "apollo host")
+	flag.StringVar(&configurationApolloAppID, "apollo_appid", "", "apollo appid")
+	flag.StringVar(&configurationApolloNameSpace, "apollo_namespace", "", "apollo namespace")
+	flag.StringVar(&configurationApolloKey, "apollo_key", "", "apollo key name")
 }
 
 func handle(mux *http.ServeMux, p dispatcher.Provider) {
