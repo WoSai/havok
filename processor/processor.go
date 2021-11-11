@@ -3,6 +3,7 @@ package processor
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/wosai/havok/internal/logger"
 	"math/rand"
 	"net/url"
 	"regexp"
@@ -173,7 +174,7 @@ func (vp *valuesProcessor) act(s *types.Session, val interface{}, child string) 
 		for _, action := range unit.Actions {
 			switch action.Method {
 			case actionPrint:
-				Logger.Info("print key", zap.Strings(unit.Key, values[unit.Key]))
+				logger.Logger.Info("print key", zap.Strings(unit.Key, values[unit.Key]))
 
 			case actionSetValue:
 				v, err := checkIfStringType(action.Params)
@@ -422,7 +423,7 @@ func (ht *HTMLProcessor) Assert(s *types.Session, body interface{}) error {
 				for _, param := range assert.Params {
 					if p, ok := param.(string); ok {
 						if !strings.Contains(string(data), p) {
-							Logger.Info(fmt.Sprintf("can't find sub string, sub string: %s, org string: %s", p, string(data)))
+							logger.Logger.Info(fmt.Sprintf("can't find sub string, sub string: %s, org string: %s", p, string(data)))
 							return errors.New(fmt.Sprintf("can't find sub string, sub string: %s", p))
 						}
 					}
@@ -449,7 +450,7 @@ func getProperActionFunc(funcs map[ActionType]ActionFunc, m ActionType) (ActionF
 	} else if f, ok = extendGlobalProcessorFunc.actions[m]; ok {
 		return f, nil
 	} else {
-		Logger.Debug("unknown proper action", zap.Any("global action", extendGlobalProcessorFunc.actions), zap.Any("action type", m))
+		logger.Logger.Debug("unknown proper action", zap.Any("global action", extendGlobalProcessorFunc.actions), zap.Any("action type", m))
 		return nil, NewErrUnknownAction(m)
 	}
 }
@@ -468,7 +469,7 @@ func getProperAssertFunc(funcs map[AssertType]AssertFunc, m AssertType) (AssertF
 
 func RegisterGlobalActionFunc(n ActionType, f ActionFunc) {
 	extendGlobalProcessorFunc.actions[n] = f
-	Logger.Debug("register global action func", zap.Any("action type", n))
+	logger.Logger.Debug("register global action func", zap.Any("action type", n))
 }
 
 func RegisterGlobalAssertFunc(n AssertType, f AssertFunc) {

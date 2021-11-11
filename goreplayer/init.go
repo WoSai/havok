@@ -3,19 +3,18 @@ package replayer
 import (
 	"math/rand"
 	"time"
-
-	"github.com/wosai/havok/logger"
-	"github.com/json-iterator/go"
-	"go.uber.org/zap"
+	//"github.com/wosai/havok/logger"
+	//"github.com/json-iterator/go"
+	//"go.uber.org/zap"
 )
 
-var (
-	Logger *zap.Logger
-	json   = jsoniter.ConfigCompatibleWithStandardLibrary
-)
+//var (
+//	Logger *zap.Logger
+//	json   = jsoniter.ConfigCompatibleWithStandardLibrary
+//)
 
 func init() {
-	Logger = logger.Logger
+	//Logger = logger.Logger
 
 	replayerPipeline = newReplayerPipeline(replayerPipelineSize)
 	resultPipeline = newResultPipeline(resultPipelineSize)

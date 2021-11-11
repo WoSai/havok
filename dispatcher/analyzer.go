@@ -1,5 +1,7 @@
 package dispatcher
 
+import "github.com/wosai/havok/internal/logger"
+
 type (
 	// Analyzer 日志内容解析器
 	Analyzer interface {
@@ -8,7 +10,7 @@ type (
 	}
 
 	LogParserPool interface {
-		Register(... LogParser)
+		Register(...LogParser)
 		Take(name string) LogParser
 	}
 
@@ -30,7 +32,7 @@ type (
 )
 
 // NewBaseAnalyzer BaseAnalyzer实例化
-func NewBaseAnalyzer(pool LogParserPool, enables []string) (*BaseAnalyzer) {
+func NewBaseAnalyzer(pool LogParserPool, enables []string) *BaseAnalyzer {
 	base := &BaseAnalyzer{
 		analyzers:     []LogParser{},
 		LogParserPool: pool,
@@ -40,7 +42,7 @@ func NewBaseAnalyzer(pool LogParserPool, enables []string) (*BaseAnalyzer) {
 		if a != nil {
 			base.Use(a)
 		} else {
-			Logger.Panic("loss analyzer.handler "+enable)
+			logger.Logger.Panic("loss analyzer.handler " + enable)
 			return nil
 		}
 	}

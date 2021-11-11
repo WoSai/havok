@@ -29,7 +29,7 @@ offset = -2    # oldest
 name = "base"
 [analyzer.handler]
 enable = ["plugin_name"]
-Plugin = ["./plugin_name.so"]
+# Plugin = ["./plugin_name.so"]
 
 [service]  # 暂时无效
 http = ":16200"

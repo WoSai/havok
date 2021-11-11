@@ -3,6 +3,7 @@ package dispatcher
 import (
 	"errors"
 	"fmt"
+	"github.com/wosai/havok/internal/logger"
 	"io"
 	"net"
 	"net/http"
@@ -82,12 +83,12 @@ func NewHavok(rm *ReplayerManager, rep *Reporter, size int) *Havok {
 // Subscribe gRPC接口
 func (hv *Havok) Subscribe(reg *pb.ReplayerRegistration, stream pb.Havok_SubscribeServer) error {
 	if reg.Id == "" {
-		Logger.Error(ErrEmptyReplayID.Error())
+		logger.Logger.Error(ErrEmptyReplayID.Error())
 		return ErrEmptyReplayID
 	}
 	replayer, loaded := hv.replayerManager.LoadOrStoreReplayer(reg.Id, NewReplayer(reg.Id, hv.channelSize))
 	if loaded {
-		Logger.Error("duplicated replayer id: " + reg.Id)
+		logger.Logger.Error("duplicated replayer id: " + reg.Id)
 		return ErrDuplicatedReplayer
 	}
 
@@ -104,11 +105,11 @@ func (hv *Havok) Subscribe(reg *pb.ReplayerRegistration, stream pb.Havok_Subscri
 		atomic.AddInt64(&hv.counter, 1)
 		err := stream.Send(event)
 		if err != nil {
-			Logger.Error("failed to send event", zap.String("replayer", reg.Id), zap.Error(err))
+			logger.Logger.Error("failed to send event", zap.String("replayer", reg.Id), zap.Error(err))
 			return err
 		}
 		if event.Type == pb.DispatcherEvent_Disconnected {
-			Logger.Warn("send disconnection event", zap.String("replayer", reg.Id))
+			logger.Logger.Warn("send disconnection event", zap.String("replayer", reg.Id))
 			break
 		}
 	}
@@ -117,7 +118,7 @@ func (hv *Havok) Subscribe(reg *pb.ReplayerRegistration, stream pb.Havok_Subscri
 
 // Report gRPC接口
 func (hv *Havok) Report(ctx context.Context, sr *pb.StatsReport) (*pb.ReportReturn, error) {
-	Logger.Info("received report from replayer", zap.String("replayer", sr.ReplayerId), zap.Int32("request_id", sr.RequestId),
+	logger.Logger.Info("received report from replayer", zap.String("replayer", sr.ReplayerId), zap.Int32("request_id", sr.RequestId),
 		zap.Time("report_at", time.Unix(sr.ReportTime/1e3, (sr.ReportTime%1e3)*1e6)))
 	hv.reporter.Collect(sr.ReplayerId, sr.RequestId, sr.PerformanceStats, sr.Stats...)
 	return &pb.ReportReturn{RequestId: sr.RequestId}, nil
@@ -145,7 +146,7 @@ func (hv *Havok) Send(log *LogRecordWrapper) {
 		hv.Deliver(ins,
 			&pb.DispatcherEvent{Type: pb.DispatcherEvent_LogRecord, Data: &pb.DispatcherEvent_Log{log.LogRecord}})
 	} else {
-		Logger.Warn("no inspector is subscribed, current LogRecord would be dropped")
+		logger.Logger.Warn("no inspector is subscribed, current LogRecord would be dropped")
 	}
 	//	<-hv.concurrency
 	//}()
@@ -169,10 +170,10 @@ func (hv *Havok) DisconnectReplayer(ins string) {
 func (hv *Havok) Start() error {
 	listener, err := net.Listen("tcp", hv.Addr)
 	if err != nil {
-		Logger.Error("failed to listen on "+hv.Addr, zap.Error(err))
+		logger.Logger.Error("failed to listen on "+hv.Addr, zap.Error(err))
 		return err
 	}
-	Logger.Info("dispatcher listen on " + listener.Addr().String())
+	logger.Logger.Info("dispatcher listen on " + listener.Addr().String())
 	go hv.KeepAlive()
 
 	go func() {
@@ -183,7 +184,7 @@ func (hv *Havok) Start() error {
 			current = atomic.LoadInt64(&hv.counter)
 			hv.qps = current - last
 			last = current
-			Logger.Info("Havok QPS", zap.Int64("havok_qps", hv.qps))
+			logger.Logger.Info("Havok QPS", zap.Int64("havok_qps", hv.qps))
 		}
 	}()
 
@@ -262,7 +263,7 @@ func (ip *ReplayerProxy) register(ins string) {
 func (ip *ReplayerProxy) remove(id string) {
 	ip.mu.Lock()
 	defer ip.mu.Unlock()
-	Logger.Info("remove replayer from ReplayerProxy", zap.String("replayer", id))
+	logger.Logger.Info("remove replayer from ReplayerProxy", zap.String("replayer", id))
 	ip.count--
 
 	backends := map[uint32]string{}

@@ -3,6 +3,7 @@ package dispatcher
 import (
 	"encoding/json"
 	"errors"
+	"github.com/wosai/havok/internal/logger"
 	"net/http"
 	"sync/atomic"
 
@@ -212,15 +213,15 @@ func (job *Job) Finish() {
 
 // Broadcast 只接收子任务通知，不负责更新下游子任务状态
 func (job *Job) Notify(from SubTask, status TaskStatus) {
-	Logger.Info("received notification from sub task", zap.Int32("status", status))
+	logger.Logger.Info("received notification from sub task", zap.Int32("status", status))
 	switch status {
 	case StatusStopped:
 		switch from.(type) {
 		case Fetcher:
-			Logger.Info("fetcher has be stopped")
+			logger.Logger.Info("fetcher has be stopped")
 			atomic.StoreInt32(&job.fetcherStatus, StatusStopped)
 		case *TimeWheel:
-			Logger.Info("time wheel has be stopped")
+			logger.Logger.Info("time wheel has be stopped")
 			atomic.StoreInt32(&job.timeWheelStatus, StatusStopped)
 			job.Stop()
 		default:
@@ -228,10 +229,10 @@ func (job *Job) Notify(from SubTask, status TaskStatus) {
 	case StatusFinished:
 		switch from.(type) {
 		case Fetcher:
-			Logger.Info("fetcher has be finished")
+			logger.Logger.Info("fetcher has be finished")
 			atomic.StoreInt32(&job.fetcherStatus, StatusFinished)
 		case *TimeWheel:
-			Logger.Info("time wheel has be finished")
+			logger.Logger.Info("time wheel has be finished")
 			atomic.StoreInt32(&job.timeWheelStatus, StatusFinished)
 			job.Finish()
 		default:
@@ -298,7 +299,7 @@ func (job *Job) featureShake() {
 					Type: pb.DispatcherEvent_JobConfiguration,
 					Data: &pb.DispatcherEvent_Job{job.Configuration},
 				})
-				Logger.Info("trigger refresh shake feature config", zap.Any("shake feature config", job.Configuration))
+				logger.Logger.Info("trigger refresh shake feature config", zap.Any("shake feature config", job.Configuration))
 			}
 			time.Sleep(time.Second * time.Duration(interval))
 		} else {
@@ -328,14 +329,14 @@ func (job *Job) featureStrike() {
 						Type: pb.DispatcherEvent_JobConfiguration,
 						Data: &pb.DispatcherEvent_Job{job.Configuration},
 					})
-					Logger.Info("trigger refresh strike feature config", zap.Any("strike feature config", job.Configuration))
+					logger.Logger.Info("trigger refresh strike feature config", zap.Any("strike feature config", job.Configuration))
 					time.Sleep(time.Second * time.Duration(coverage))
 					job.mergeJobConfiguration(&pb.JobConfiguration{Rate: orgRate, Stuck: -1})
 					job.Havok.Broadcast(&pb.DispatcherEvent{
 						Type: pb.DispatcherEvent_JobConfiguration,
 						Data: &pb.DispatcherEvent_Job{job.Configuration},
 					})
-					Logger.Info("trigger recover strike feature config", zap.Any("strike feature config", job.Configuration))
+					logger.Logger.Info("trigger recover strike feature config", zap.Any("strike feature config", job.Configuration))
 				}
 			}
 			time.Sleep(time.Second * time.Duration(interval))

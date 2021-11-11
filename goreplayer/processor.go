@@ -1,13 +1,16 @@
 package replayer
 
 import (
-	"io/ioutil"
-
+	"encoding/json"
+	"fmt"
+	"github.com/wosai/havok/internal/option"
+	"github.com/wosai/havok/pkg/apollo"
 	"github.com/wosai/havok/processor"
+	"io/ioutil"
 )
 
 type (
-	HTTPAPI string
+	HTTPAPI   string
 	FlowScope string
 
 	processConfigBlock struct {
@@ -44,6 +47,24 @@ type (
 		ps     map[HTTPAPI]*processorFlow
 	}
 )
+
+func NewProcessorConfigFromApollo(opt option.Apollo) (ProcessConfig, error) {
+	var conf ProcessConfig
+	client, err := apollo.NewClient(apollo.WithUrl(opt.Host), apollo.WithAppId(opt.AppID), apollo.WithNamespace(opt.Namespace))
+	if err != nil {
+		return nil, err
+	}
+	data, ok := client.GetConfig(opt.Key)
+	if !ok {
+		panic(fmt.Sprintf("%s in %s/%s is empty", opt.Key, opt.AppID, opt.Namespace))
+	}
+	err = json.Unmarshal([]byte(data.(string)), &conf)
+	if err != nil {
+		return nil, err
+	}
+	return conf, nil
+	return conf, nil
+}
 
 func NewProcessorConfigFromFile(fp string) (ProcessConfig, error) {
 	data, err := ioutil.ReadFile(fp)

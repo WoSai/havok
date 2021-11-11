@@ -1,6 +1,7 @@
 package dispatcher
 
 import (
+	"github.com/wosai/havok/internal/logger"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -73,7 +74,7 @@ func (r *Reporter) PeriodicRequest() {
 		rs := r.rm.GetReplayers()
 		nums := len(rs)
 		if nums == 0 {
-			Logger.Warn("no alived replayer, no report request sent")
+			logger.Logger.Warn("no alived replayer, no report request sent")
 			continue
 		}
 
@@ -97,19 +98,19 @@ func (r *Reporter) PeriodicRequest() {
 		}
 
 		if nums > 0 {
-			Logger.Info("start to collect stats from all alived replayers", zap.Int32("batch", batch), zap.Int("alived-replayer", nums))
+			logger.Logger.Info("start to collect stats from all alived replayers", zap.Int32("batch", batch), zap.Int("alived-replayer", nums))
 		}
 	}
 }
 
 func (r *Reporter) Collect(rid string, b int32, perStat map[string]float64, stats ...*pb.AttackerStatsWrapper) {
-	Logger.Info("collected report", zap.String("replayer", rid), zap.Int32("batch", b))
+	logger.Logger.Info("collected report", zap.String("replayer", rid), zap.Int32("batch", b))
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	res, exist := r.reservoirs[b]
 	if !exist {
-		Logger.Warn("cannot found reservoir", zap.Int32("batch-to-collect", b), zap.Int32("last-complete-batch", r.lastCompletedBatch), zap.Int32("latest-batch", r.batch))
+		logger.Logger.Warn("cannot found reservoir", zap.Int32("batch-to-collect", b), zap.Int32("last-complete-batch", r.lastCompletedBatch), zap.Int32("latest-batch", r.batch))
 		return
 	}
 	res.convertAndAggregate(rid, stats...)
@@ -127,7 +128,7 @@ func (r *Reporter) Run() {
 		last := r.lastCompletedBatch
 
 		if batch < last {
-			Logger.Warn("bad batch number, it will be delete", zap.Int32("batch", batch))
+			logger.Logger.Warn("bad batch number, it will be delete", zap.Int32("batch", batch))
 			r.mu.Unlock()
 			continue
 		}
@@ -141,7 +142,7 @@ func (r *Reporter) Run() {
 				}
 			}(r.lastReport, res.perfStat)
 		} else {
-			Logger.Warn("SummaryStats is empty, ignored", zap.Int32("batch", batch))
+			logger.Logger.Warn("SummaryStats is empty, ignored", zap.Int32("batch", batch))
 		}
 
 		for ; last <= batch; last++ {

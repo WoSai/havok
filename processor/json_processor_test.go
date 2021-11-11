@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/wosai/havok/types"
 	"github.com/BurntSushi/toml"
 	"github.com/buger/jsonparser"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/wosai/havok/types"
 	"gopkg.in/yaml.v2"
 )
 

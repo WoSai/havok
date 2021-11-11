@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/wosai/havok/internal/logger"
 	"net/url"
 	"strconv"
 	"strings"
@@ -46,7 +47,7 @@ func (up *URLProcessor) Act(s *types.Session, u interface{}) (interface{}, error
 
 			switch action.Method {
 			case actionPrint:
-				Logger.Info("print key-value", zap.String(unit.Key, value))
+				logger.Logger.Info("print key-value", zap.String(unit.Key, value))
 
 			case actionSetValue:
 				v, err := checkIfStringType(action.Params)

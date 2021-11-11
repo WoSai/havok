@@ -1,0 +1,40 @@
+logger:
+  level: debug
+
+dispatcher:
+  job:
+    rate: 1.0
+    speed: 1.0
+    begin: 1532058494000
+    end: 1532076494000
+  fetcher:
+    type: file
+    file:
+      path: havok-project.log
+    analyzer:
+      name: base
+      handler:
+        enable:
+          - UPayGatewayFileLog
+        plugin:
+          - ./havok_plugin.so
+  service:
+    grpc: ":16300"
+    http: ":16200"
+  reporter:
+    style:
+      name: influxdb
+    influxdb:
+      authtoken:
+      organization:
+      bucket:
+
+goreplayer:
+  replayerconcurrency: 10
+  rule:
+    path: ./cli/rules.json
+    apollo:
+      host:
+      appid:
+      namespace:
+      key:

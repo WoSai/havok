@@ -32,12 +32,12 @@ func (wap logRecordAdapter) Parse(b []byte) (*LogRecordWrapper, bool) {
 	hashField, occurAt, url, method, header, body, ok := wap.plug.Parse(b)
 	return &LogRecordWrapper{
 		HashField: hashField,
-		OccurAt: occurAt,
+		OccurAt:   occurAt,
 		LogRecord: &pb.LogRecord{
-			Url: url,
+			Url:    url,
 			Method: method,
 			Header: header,
-			Body: body,
+			Body:   body,
 		},
 	}, ok
 }

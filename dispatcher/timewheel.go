@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"errors"
+	"github.com/wosai/havok/internal/logger"
 	"sync/atomic"
 	"time"
 
@@ -85,7 +86,7 @@ func (tw *TimeWheel) Start() error {
 	if tw.parent != nil {
 		tw.parent.Notify(tw, StatusRunning)
 	}
-	Logger.Info("start time wheel", zap.String("begin", tw.begin.String()), zap.String("end", tw.end.String()))
+	logger.Logger.Info("start time wheel", zap.String("begin", tw.begin.String()), zap.String("end", tw.end.String()))
 
 	go func() {
 		var last = tw.counter
@@ -95,13 +96,13 @@ func (tw *TimeWheel) Start() error {
 			current = atomic.LoadInt64(&tw.counter)
 			tw.qps = current - last
 			last = current
-			Logger.Info("TimeWheel QPS", zap.Int64("timewheel_qps", tw.qps))
+			logger.Logger.Info("TimeWheel QPS", zap.Int64("timewheel_qps", tw.qps))
 		}
 	}()
 
 	for log := range tw.inbox {
 		if atomic.LoadInt32(&tw.status) == StatusStopped {
-			Logger.Warn("current time wheel is stopped")
+			logger.Logger.Warn("current time wheel is stopped")
 			return ErrTaskInterrupted
 		}
 
@@ -111,13 +112,13 @@ func (tw *TimeWheel) Start() error {
 
 		if log.OccurAt.After(tw.end) { // 晚于任务结束时间，不处理，并且结束
 			tw.Finish()
-			Logger.Info("time of log record is later than end time of job, time wheel would be shutdown", zap.String("occurAt", log.OccurAt.String()))
+			logger.Logger.Info("time of log record is later than end time of job, time wheel would be shutdown", zap.String("occurAt", log.OccurAt.String()))
 			return nil
 		}
 
 		if tw.delta == 0 {
 			tw.delta = time.Now().Sub(log.OccurAt)
-			Logger.Info("set delta field of time wheel", zap.String("delta", tw.delta.String()), zap.String("occurAt", log.OccurAt.String()))
+			logger.Logger.Info("set delta field of time wheel", zap.String("delta", tw.delta.String()), zap.String("occurAt", log.OccurAt.String()))
 			go tw.wheeling()
 		}
 
@@ -131,7 +132,7 @@ func (tw *TimeWheel) Start() error {
 		tw.Havok.Send(log)
 	}
 	// 上游Fetcher需要主动关闭channel，应当视为其完成了发送
-	Logger.Info("time wheel inbox is closed, fetcher is finished")
+	logger.Logger.Info("time wheel inbox is closed, fetcher is finished")
 	tw.Finish()
 	return nil
 }
@@ -147,7 +148,7 @@ func (tw *TimeWheel) wheeling() {
 	for range tw.ticker.C {
 		tw.next()
 	}
-	Logger.Info("stop wheeling")
+	logger.Logger.Info("stop wheeling")
 }
 
 func (tw *TimeWheel) next() {

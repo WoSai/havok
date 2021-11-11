@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/wosai/havok/protobuf"
 	"github.com/stretchr/testify/assert"
+	pb "github.com/wosai/havok/protobuf"
 )
 
 var (

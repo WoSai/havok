@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"errors"
-	"github.com/wosai/havok/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/wosai/havok/types"
 )
 
 var (

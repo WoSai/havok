@@ -4,13 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/wosai/havok/internal/logger"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/wosai/havok/types"
 	"github.com/buger/jsonparser"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 )
 
@@ -81,7 +82,7 @@ func (jp *JSONProcessor) Act(s *types.Session, body interface{}) (interface{}, e
 				}
 				data, err = jsonparser.Set(data, field, jp.getJSONPath(unit.Key)...)
 				if err != nil {
-					Logger.Info("actionSetValue occurs error", zap.Error(err))
+					logger.Logger.Info("actionSetValue occurs error", zap.Error(err))
 					return nil, err
 				}
 
@@ -182,7 +183,7 @@ func (jp *JSONProcessor) Act(s *types.Session, body interface{}) (interface{}, e
 				key, err = checkIfStringType(action.Params)
 				field, _, _, err = jsonparser.Get(data, jp.getJSONPath(unit.Key)...)
 				if err != nil {
-					Logger.Info("actionStoreIntoSession occurs error", zap.Error(err), zap.String("key", unit.Key))
+					logger.Logger.Info("actionStoreIntoSession occurs error", zap.Error(err), zap.String("key", unit.Key))
 					return nil, err
 				}
 				s.Put(key, field)
@@ -211,10 +212,10 @@ func (jp *JSONProcessor) Act(s *types.Session, body interface{}) (interface{}, e
 
 			case actionPrint:
 				if unit.Key == "*" {
-					Logger.Info("print data", zap.ByteString("data", data))
+					logger.Logger.Info("print data", zap.ByteString("data", data))
 				} else {
 					field, _, _, err = jsonparser.Get(data, jp.getJSONPath(unit.Key)...)
-					Logger.Info("print value as string", zap.ByteString(unit.Key, field))
+					logger.Logger.Info("print value as string", zap.ByteString(unit.Key, field))
 				}
 
 			case actionBuildString:

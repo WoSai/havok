@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/wosai/havok/internal/logger"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -82,7 +83,7 @@ func (rep *Replayer) Run() {
 		var api HTTPAPI = "default"
 		reqURL, err := url.Parse(logRecord.Url)
 		if err != nil {
-			Logger.Error("failed to parse url", zap.Error(err))
+			logger.Logger.Error("failed to parse url", zap.Error(err))
 			continue
 		}
 
@@ -123,12 +124,12 @@ func (rep *Replayer) refreshReplayerConfig(jobConfig *dispatcher.JobConfiguratio
 	if jobConfig != nil {
 		if rep.replayRate != jobConfig.Rate && jobConfig.Rate > 0 {
 			rep.replayRate = jobConfig.Rate
-			Logger.Info("refresh replayer rate", zap.Float32("rate", jobConfig.Rate))
+			logger.Logger.Info("refresh replayer rate", zap.Float32("rate", jobConfig.Rate))
 		}
 		stuck := time.Duration(jobConfig.Stuck)
 		if rep.stuck != stuck {
 			rep.stuck = stuck
-			Logger.Info("refresh replayer stuck", zap.Int64("stuck millisecond", jobConfig.Stuck))
+			logger.Logger.Info("refresh replayer stuck", zap.Int64("stuck millisecond", jobConfig.Stuck))
 		}
 	}
 
@@ -141,7 +142,7 @@ func (rep *Replayer) getStuck() time.Duration {
 	tempStuck := rep.stuck
 	if tempStuck > 0 {
 		rep.stuck = types.ZeroDuration
-		Logger.Info("trigger stuck", zap.Duration("value", tempStuck))
+		logger.Logger.Info("trigger stuck", zap.Duration("value", tempStuck))
 		return tempStuck
 	}
 	return types.ZeroDuration
@@ -157,10 +158,10 @@ func (rep *Replayer) ExtraSendWithSession(data interface{}, session *types.Sessi
 				for _, log := range logs {
 					switch logRecord := log.(type) {
 					case dispatcher.LogRecord:
-						Logger.Debug("try to do extra send", zap.String("ActionName", name), zap.Any("LogRecord", logRecord))
+						logger.Logger.Debug("try to do extra send", zap.String("ActionName", name), zap.Any("LogRecord", logRecord))
 						reqURL, err := url.Parse(logRecord.Url)
 						if err != nil {
-							Logger.Error("ExtraSend failed to parse url", zap.Error(err))
+							logger.Logger.Error("ExtraSend failed to parse url", zap.Error(err))
 						} else {
 							httpAPI := rep.Selector(reqURL, logRecord.Header, logRecord.Method, logRecord.Body)
 							wg.Add(1)
@@ -171,7 +172,7 @@ func (rep *Replayer) ExtraSendWithSession(data interface{}, session *types.Sessi
 							}(reqURL, &logRecord, httpAPI, session)
 						}
 					default:
-						Logger.Info("unknown extra action", zap.Any("type", reflect.TypeOf(log)), zap.String("ActionName", name), zap.Any("LogRecord", logRecord))
+						logger.Logger.Info("unknown extra action", zap.Any("type", reflect.TypeOf(log)), zap.String("ActionName", name), zap.Any("LogRecord", logRecord))
 					}
 				}
 			}
@@ -209,31 +210,31 @@ func (rep *Replayer) send(api HTTPAPI, oU *url.URL, method string, oH map[string
 	// doRequest
 	req, err := http.NewRequest(method, requestPackager.URL.String(), bytes.NewBuffer(requestPackager.Body))
 	if err != nil {
-		Logger.Error("failed to new request", zap.Error(err))
+		logger.Logger.Error("failed to new request", zap.Error(err))
 		return 0, err
 	}
 	req.Header = requestPackager.Header
 	req.Header["fake"] = []string{"1"}
 
-	Logger.Info("prepare to request", zap.String("url", requestPackager.URL.String()), zap.Any("req header", req.Header), zap.Any("cookies", req.Cookies()), zap.ByteString("body", requestPackager.Body))
+	logger.Logger.Info("prepare to request", zap.String("url", requestPackager.URL.String()), zap.Any("req header", req.Header), zap.Any("cookies", req.Cookies()), zap.ByteString("body", requestPackager.Body))
 	start := time.Now()
 	res, err := rep.client.Do(req)
 	duration = time.Since(start)
 	if err != nil {
-		Logger.Error("occur error when send request", zap.Error(err), zap.ByteString("req body", requestPackager.Body), zap.String("url", req.URL.String()))
+		logger.Logger.Error("occur error when send request", zap.Error(err), zap.ByteString("req body", requestPackager.Body), zap.String("url", req.URL.String()))
 		return duration, err
 	}
 	defer res.Body.Close()
 	content, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		Logger.Error("occur error when reading response", zap.Error(err), zap.ByteString("req body", requestPackager.Body), zap.String("url", req.URL.String()))
+		logger.Logger.Error("occur error when reading response", zap.Error(err), zap.ByteString("req body", requestPackager.Body), zap.String("url", req.URL.String()))
 		return duration, err
 	}
 	duration = time.Since(start)
-	Logger.Info("get callback", zap.String("url", req.URL.String()), zap.ByteString("response", content), zap.Int("latency", int(duration.Seconds()*1000)), zap.Any("resp header", res.Header), zap.ByteString("req body", requestPackager.Body))
+	logger.Logger.Info("get callback", zap.String("url", req.URL.String()), zap.ByteString("response", content), zap.Int("latency", int(duration.Seconds()*1000)), zap.Any("resp header", res.Header), zap.ByteString("req body", requestPackager.Body))
 
 	if res.StatusCode >= 400 {
-		Logger.Error(fmt.Sprintf("bad status code: %d", res.StatusCode), zap.ByteString("req body", requestPackager.Body), zap.String("url", req.URL.String()))
+		logger.Logger.Error(fmt.Sprintf("bad status code: %d", res.StatusCode), zap.ByteString("req body", requestPackager.Body), zap.String("url", req.URL.String()))
 		return duration, errors.New(fmt.Sprintf("bad status code: %d", res.StatusCode))
 	}
 
@@ -271,32 +272,32 @@ func replayerBeforeAction(pb *processorBlock, packager *Packager) (*Packager, er
 		return packager, nil
 	}
 	if pb.header != nil {
-		Logger.Debug("header before process", zap.Any("header", packager.Header))
+		logger.Logger.Debug("header before process", zap.Any("header", packager.Header))
 		if _, err := pb.header.Act(packager.Session, packager.Header); err == nil {
-			Logger.Debug("header after process", zap.Any("header", packager.Header))
+			logger.Logger.Debug("header after process", zap.Any("header", packager.Header))
 		} else {
 			return nil, err
 		}
 	}
 	if pb.url != nil {
-		Logger.Debug("url before process", zap.Any("url", packager.URL))
+		logger.Logger.Debug("url before process", zap.Any("url", packager.URL))
 		if _, err := pb.url.Act(packager.Session, packager.URL); err == nil {
-			Logger.Debug("url after process", zap.Any("url", packager.URL))
+			logger.Logger.Debug("url after process", zap.Any("url", packager.URL))
 		} else {
 			return nil, err
 		}
 	}
 	if pb.params != nil {
-		Logger.Debug("url params before process", zap.Any("params", packager.URL.Query()))
+		logger.Logger.Debug("url params before process", zap.Any("params", packager.URL.Query()))
 		if qi, err := pb.params.Act(packager.Session, packager.URL.Query()); err == nil {
 			packager.URL.RawQuery = qi.(url.Values).Encode()
-			Logger.Debug("url params after process", zap.Any("params", packager.URL.Query()))
+			logger.Logger.Debug("url params after process", zap.Any("params", packager.URL.Query()))
 		} else {
 			return nil, err
 		}
 	}
 	if pb.body != nil {
-		Logger.Debug("request body before process", zap.ByteString("body", packager.Body))
+		logger.Logger.Debug("request body before process", zap.ByteString("body", packager.Body))
 		if nb, err := pb.body.Act(packager.Session, packager.Body); err == nil {
 			switch t := nb.(type) {
 			case url.Values:
@@ -306,7 +307,7 @@ func replayerBeforeAction(pb *processorBlock, packager *Packager) (*Packager, er
 			default:
 				return nil, errors.New(fmt.Sprintf("unknown data type: %s", t))
 			}
-			Logger.Debug("request body after process", zap.ByteString("body", packager.Body))
+			logger.Logger.Debug("request body after process", zap.ByteString("body", packager.Body))
 		} else {
 			return nil, err
 		}
@@ -320,25 +321,25 @@ func replayerAfterAction(pb *processorBlock, packager *Packager) error {
 	}
 	if pb.header != nil {
 		if _, err := pb.header.Act(packager.Session, packager.Header); err != nil {
-			Logger.Debug("after action header occur assert", zap.Error(err))
+			logger.Logger.Debug("after action header occur assert", zap.Error(err))
 			return err
 		}
 	}
 	if pb.url != nil {
 		if _, err := pb.url.Act(packager.Session, packager.Header); err != nil {
-			Logger.Debug("after action url occur assert", zap.Error(err))
+			logger.Logger.Debug("after action url occur assert", zap.Error(err))
 			return err
 		}
 	}
 	if pb.params != nil {
 		if _, err := pb.params.Act(packager.Session, packager.URL.Query()); err != nil {
-			Logger.Debug("after action url params occur assert", zap.Error(err))
+			logger.Logger.Debug("after action url params occur assert", zap.Error(err))
 			return err
 		}
 	}
 	if pb.body != nil {
 		if _, err := pb.body.Act(packager.Session, packager.Body); err != nil {
-			Logger.Debug("after action body occur assert", zap.Error(err))
+			logger.Logger.Debug("after action body occur assert", zap.Error(err))
 			return err
 		}
 	}
@@ -351,25 +352,25 @@ func replayerAssert(pb *processorBlock, packager *Packager) error {
 	}
 	if pb.header != nil {
 		if err := pb.header.Assert(packager.Session, packager.Header); err != nil {
-			Logger.Debug("assert header occur assert", zap.Error(err))
+			logger.Logger.Debug("assert header occur assert", zap.Error(err))
 			return err
 		}
 	}
 	if pb.url != nil {
 		if err := pb.url.Assert(packager.Session, packager.URL); err != nil {
-			Logger.Debug("assert url occur assert", zap.Error(err))
+			logger.Logger.Debug("assert url occur assert", zap.Error(err))
 			return err
 		}
 	}
 	if pb.params != nil {
 		if err := pb.params.Assert(packager.Session, packager.URL.Query()); err != nil {
-			Logger.Debug("assert url params occur assert", zap.Error(err))
+			logger.Logger.Debug("assert url params occur assert", zap.Error(err))
 			return err
 		}
 	}
 	if pb.body != nil {
 		if err := pb.body.Assert(packager.Session, packager.Body); err != nil {
-			Logger.Debug("assert body occur assert", zap.Error(err))
+			logger.Logger.Debug("assert body occur assert", zap.Error(err))
 			return err
 		}
 	}

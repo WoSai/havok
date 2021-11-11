@@ -1,13 +1,13 @@
 package dispatcher
 
 import (
-	"reflect"
-	"github.com/prometheus/client_golang/prometheus"
-	"sync"
-	"net/http"
-	"github.com/wosai/havok/types"
 	"encoding/json"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/wosai/havok/types"
+	"net/http"
+	"reflect"
+	"sync"
 )
 
 type (
@@ -20,7 +20,7 @@ type (
 		Lock        sync.Mutex
 	}
 	MetricsAnalyzer func(namespace string, store map[string]interface{}, ch chan<- prometheus.Metric)
-	MetricSelector func(d interface{}) string
+	MetricSelector  func(d interface{}) string
 )
 
 var (

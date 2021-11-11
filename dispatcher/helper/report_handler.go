@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/wosai/havok/dispatcher"
-	"github.com/wosai/havok/types"
-	influx "github.com/influxdata/influxdb/client/v2"
+	infx2 "github.com/influxdata/influxdb-client-go/v2"
+	infx2api "github.com/influxdata/influxdb-client-go/v2/api"
 	"github.com/json-iterator/go"
+	"github.com/wosai/havok/dispatcher"
+	"github.com/wosai/havok/internal/logger"
+	"github.com/wosai/havok/internal/option"
+	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 )
 
@@ -19,27 +21,20 @@ var (
 )
 
 type (
-	batchPointsBuffer struct {
-		helper   *InfluxDBHelper
-		bp       influx.BatchPoints
-		interval time.Duration
-		mu       sync.Mutex
-		conf     influx.BatchPointsConfig
-	}
 
 	// InfluxDBHelper .
 	InfluxDBHelper struct {
-		client influx.Client
-		conf   *InfluxDBHelperConfig
-		buffer *batchPointsBuffer
+		client infx2.Client
+		conf   option.InfluxDBOption
+		writer infx2api.WriteAPI
 	}
 
 	// InfluxDBHelperConfig InfluxDBHelper配置
 	InfluxDBHelperConfig struct {
 		URL                    string
-		UDP                    bool
-		User                   string
-		Password               string
+		AuthToken              string
+		Organization           string
+		Bucket                 string
 		Database               string
 		MeasurementSucc        string
 		MeasurementFail        string
@@ -51,111 +46,17 @@ type (
 	}
 )
 
-const (
-	// DefaultInfluxDBURL influxdb address
-	DefaultInfluxDBURL = "http://127.0.0.1:8086"
-	// DefaultInfluxDBName influxdb database name
-	DefaultInfluxDBName = "havok"
-	// DefaultMeasurementSucc the measurement to store successful request
-	DefaultMeasurementSucc = "success"
-	// DefaultMeasurementFail the measurement to store failed request
-	DefaultMeasurementFail = "failures"
-	// DefaultMeasurementAggregation the measurement to store report
-	DefaultMeasurementAggregation = "report"
-)
-
-func (b *batchPointsBuffer) addPoint(p *influx.Point) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.bp == nil {
-		bp, err := influx.NewBatchPoints(b.conf)
-		if err != nil {
-			dispatcher.Logger.Error("failed to call NewBatchPoints: " + err.Error())
-			return
-		}
-		b.bp = bp
-	}
-	b.bp.AddPoint(p)
-}
-
-func (b *batchPointsBuffer) flushing() {
-	for {
-		time.Sleep(b.interval)
-
-		b.mu.Lock()
-		if b.bp == nil {
-			b.mu.Unlock()
-			continue
-		}
-
-		go func(c influx.Client, bp influx.BatchPoints) {
-			err := c.Write(bp)
-			if err != nil {
-				dispatcher.Logger.Error("failed to write batch points: " + err.Error())
-			} else {
-				dispatcher.Logger.Info("succeed to write batch points into influxdb")
-			}
-		}(b.helper.client, b.bp)
-
-		b.bp = nil
-		b.mu.Unlock()
-	}
-
-}
-
-func newInfluxDBHTTPClient(url, user, password string) (influx.Client, error) {
-	return influx.NewHTTPClient(influx.HTTPConfig{
-		Addr:     url,
-		Username: user,
-		Password: password,
-	})
-}
-
-func newInfluxDBUDPClient(url string) (influx.Client, error) {
-	return influx.NewUDPClient(influx.UDPConfig{
-		Addr: url,
-	})
-}
-
-// NewInfluxDBHelperConfig 实例化InfluxDBHelpConfig默认配置
-func NewInfluxDBHelperConfig() *InfluxDBHelperConfig {
-	return &InfluxDBHelperConfig{
-		URL:                    DefaultInfluxDBURL,
-		UDP:                    false,
-		User:                   "",
-		Password:               "",
-		Database:               DefaultInfluxDBName,
-		MeasurementSucc:        DefaultMeasurementSucc,
-		MeasurementFail:        DefaultMeasurementFail,
-		MeasurementAggregation: DefaultMeasurementAggregation,
-	}
-}
-
 // NewInfluxDBHelper 实例化NewInfluxDBHelper对象
-func NewInfluxDBHelper(conf *InfluxDBHelperConfig) (*InfluxDBHelper, error) {
-	var err error
-	var client influx.Client
-	if conf.UDP {
-		client, err = newInfluxDBUDPClient(conf.URL)
-	} else {
-		client, err = newInfluxDBHTTPClient(conf.URL, conf.User, conf.Password)
-	}
-
-	if err != nil {
-		dispatcher.Logger.Error("failed to init influxdb client: " + err.Error())
-		return nil, err
-	}
-
-	buf := &batchPointsBuffer{
-		helper:   nil,
-		interval: time.Millisecond * 500,
-		conf:     influx.BatchPointsConfig{Precision: "ms", Database: conf.Database},
-	}
-	helper := &InfluxDBHelper{client: client, conf: conf, buffer: buf}
-	buf.helper = helper
-	go buf.flushing()
-
-	return helper, nil
+func NewInfluxDBHelper(conf option.InfluxDBOption) (*InfluxDBHelper, error) {
+	client := infx2.NewClientWithOptions(conf.ServerURL, conf.AuthToken,
+		infx2.DefaultOptions().SetBatchSize(uint(conf.BatchSize)).SetFlushInterval(uint(conf.FlushInterval)).SetPrecision(time.Millisecond))
+	// Get non-blocking write client
+	noBlockWriteAPI := client.WriteAPI(conf.Organization, conf.Bucket)
+	return &InfluxDBHelper{
+		client: client,
+		conf:   conf,
+		writer: noBlockWriteAPI,
+	}, nil
 }
 
 // HandleReport 处理聚合报告
@@ -167,8 +68,8 @@ func (i *InfluxDBHelper) HandleReport() dispatcher.ReportHandleFunc {
 				return
 			}
 
-			point, err := influx.NewPoint(
-				i.conf.MeasurementAggregation,
+			point := infx2.NewPoint(
+				i.conf.Measurement,
 				map[string]string{"api": report.Name},
 				map[string]interface{}{
 					"qps":        report.QPS,
@@ -191,13 +92,15 @@ func (i *InfluxDBHelper) HandleReport() dispatcher.ReportHandleFunc {
 				},
 				time.Now(),
 			)
-			if err != nil {
-				dispatcher.Logger.Error("failed to create new point: " + err.Error())
-			} else {
-				i.buffer.addPoint(point)
-			}
+			i.writer.WritePoint(point)
 		}
 	}
+}
+
+func (i *InfluxDBHelper) Close() {
+	fmt.Println("ihelper close")
+	i.writer.Flush()
+	i.client.Close()
 }
 
 func PrintReportToConsole(report types.Report, perfStat types.PerformanceStat) {
@@ -241,13 +144,13 @@ func PrintReportToConsole(report types.Report, perfStat types.PerformanceStat) {
 			//	f.WriteString(op)
 			//}
 		} else {
-			dispatcher.Logger.Error("marshel report object failed", zap.Error(err))
+			logger.Logger.Error("marshel report object failed", zap.Error(err))
 		}
 	}
 }
 
 func LogTailFeeder(report types.Report, _ types.PerformanceStat) {
 	for _, r := range report {
-		dispatcher.Logger.Info("stress test report", zap.String("api", r.Name), zap.Any("report", r))
+		logger.Logger.Info("stress test report", zap.String("api", r.Name), zap.Any("report", r))
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/wosai/havok/internal/logger"
 	"math/rand"
 	"net/http"
 	"os"
@@ -13,9 +14,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "github.com/wosai/havok/protobuf"
 	sls "github.com/aliyun/aliyun-log-go-sdk"
 	"github.com/segmentio/kafka-go"
+	pb "github.com/wosai/havok/protobuf"
 	"go.uber.org/zap"
 	"gopkg.in/olivere/elastic.v5"
 )
@@ -133,7 +134,7 @@ func (bf *baseFetcher) Stop() {
 }
 
 func (bf *baseFetcher) Finish() {
-	Logger.Info("file fetcher finished")
+	logger.Logger.Info("file fetcher finished")
 	atomic.CompareAndSwapInt32(&bf.status, StatusRunning, StatusFinished)
 	if bf.output != nil {
 		close(bf.output) // 关闭通道
@@ -157,7 +158,7 @@ func (ff *FileFetcher) Start() error {
 	}
 	file, err := os.Open(ff.path)
 	if err != nil {
-		Logger.Error("failed to open file, stop FileFetcher", zap.Error(err))
+		logger.Logger.Error("failed to open file, stop FileFetcher", zap.Error(err))
 		ff.Stop()
 		if ff.parent != nil {
 			ff.parent.Notify(ff, StatusStopped)
@@ -178,7 +179,7 @@ func (ff *FileFetcher) Start() error {
 		}
 
 		if log.OccurAt.After(ff.end) { // 日志时间超出，退出循环
-			Logger.Info("time of log is later than end time", zap.String("occurAt", log.OccurAt.String()),
+			logger.Logger.Info("time of log is later than end time", zap.String("occurAt", log.OccurAt.String()),
 				zap.String("end", ff.end.String()))
 			break
 		}
@@ -189,11 +190,11 @@ func (ff *FileFetcher) Start() error {
 	}
 
 	if err = scanner.Err(); err != nil {
-		Logger.Error("failed to load file content, stop FileFetcher", zap.Error(err))
+		logger.Logger.Error("failed to load file content, stop FileFetcher", zap.Error(err))
 		ff.Stop()
 		return err
 	}
-	Logger.Info("finished to fetcher file")
+	logger.Logger.Info("finished to fetcher file")
 	ff.Finish()
 	return nil
 }
@@ -232,14 +233,14 @@ func (sa *AliyunSLSAnt) work() {
 		for ; retry < 3; retry++ {
 			logs, err = sa.queen.store.GetLogs("", sa.from, sa.end, sa.queen.Expression, sa.queen.PageSize, offset*sa.queen.PageSize, false)
 			if err != nil {
-				Logger.Warn("failed to invoke GetLogs, retry again", zap.Error(err))
+				logger.Logger.Warn("failed to invoke GetLogs, retry again", zap.Error(err))
 			} else {
 				break
 			}
 		}
 		offset++
 		if retry == 3 && err != nil {
-			Logger.Info("failed to fetch logs in time range", zap.Int64("from", sa.from), zap.Int64("to", sa.end), zap.Int64("offset", offset))
+			logger.Logger.Info("failed to fetch logs in time range", zap.Int64("from", sa.from), zap.Int64("to", sa.end), zap.Int64("offset", offset))
 			continue
 		}
 
@@ -257,7 +258,7 @@ func (sa *AliyunSLSAnt) work() {
 		}
 
 		if logs.Count < sa.queen.PageSize { // 最后一页
-			Logger.Info("reached last page", zap.Int64("begin", sa.from), zap.Int64("end", sa.end))
+			logger.Logger.Info("reached last page", zap.Int64("begin", sa.from), zap.Int64("end", sa.end))
 			break
 		}
 	}
@@ -276,7 +277,7 @@ func NewAliyunSLSConcurrencyFetcher(key, secret, region, project, logstore, exp 
 	if err != nil {
 		return nil, err
 	}
-	Logger.Info("sls server was connected")
+	logger.Logger.Info("sls server was connected")
 	return &AliyunSLSConcurrencyFetcher{
 			store:        store,
 			AccessKey:    key,
@@ -327,7 +328,7 @@ func (scf *AliyunSLSConcurrencyFetcher) Start() error {
 			current = atomic.LoadInt64(&scf.count)
 			scf.qps = current - last
 			last = current
-			Logger.Info("AliyunSLSConcurrencyFetcher QPS", zap.Int64("fetcher_qps", scf.qps))
+			logger.Logger.Info("AliyunSLSConcurrencyFetcher QPS", zap.Int64("fetcher_qps", scf.qps))
 		}
 	}()
 
@@ -374,7 +375,7 @@ func (scf *AliyunSLSConcurrencyFetcher) Start() error {
 					t = r.OccurAt
 				}
 				if r.OccurAt.Before(t) {
-					Logger.Warn("out-of-order", zap.Time("log_time", r.OccurAt), zap.Time("last_time", t))
+					logger.Logger.Warn("out-of-order", zap.Time("log_time", r.OccurAt), zap.Time("last_time", t))
 				} else {
 					t = r.OccurAt
 				}
@@ -416,7 +417,7 @@ func (scf *AliyunSLSConcurrencyFetcher) Provide() []ProviderMethod {
 
 func NewKafkaSinglePartitionFetcher(brokers []string, topic string, offset int64) (*KafkaSinglePartitionFetcher, error) {
 	if len(brokers) == 0 {
-		Logger.Error("bad broker")
+		logger.Logger.Error("bad broker")
 		return nil, errors.New("empty broker")
 	}
 
@@ -429,7 +430,7 @@ func NewKafkaSinglePartitionFetcher(brokers []string, topic string, offset int64
 		CommitInterval: time.Second,
 	})
 	r.SetOffset(offset)
-	Logger.Info("created KafkaSinglePartitionFetcher", zap.Strings("brokers", brokers), zap.String("topic", topic), zap.Int64("offset", offset))
+	logger.Logger.Info("created KafkaSinglePartitionFetcher", zap.Strings("brokers", brokers), zap.String("topic", topic), zap.Int64("offset", offset))
 	return &KafkaSinglePartitionFetcher{
 		baseFetcher: newBaseFetcher(),
 		reader:      r,
@@ -464,7 +465,7 @@ func (kspf *KafkaSinglePartitionFetcher) Start() error {
 			current = atomic.LoadInt64(&kspf.counter)
 			kspf.qps = current - last
 			last = current
-			Logger.Info("QPS of KafkaSinglePartionFetcher", zap.Int64("qps", kspf.qps), zap.Int64("count", last))
+			logger.Logger.Info("QPS of KafkaSinglePartionFetcher", zap.Int64("qps", kspf.qps), zap.Int64("count", last))
 		}
 	}()
 
@@ -472,7 +473,7 @@ func (kspf *KafkaSinglePartitionFetcher) Start() error {
 		msg, err := kspf.reader.ReadMessage(context.Background())
 		atomic.AddInt64(&kspf.counter, 1)
 		if err != nil {
-			Logger.Error("occur error when reading message", zap.Error(err))
+			logger.Logger.Error("occur error when reading message", zap.Error(err))
 			return err
 		}
 
@@ -486,7 +487,7 @@ func (kspf *KafkaSinglePartitionFetcher) Start() error {
 		}
 
 		if log.OccurAt.After(kspf.end) {
-			Logger.Info("time of log record is later than end time, finish fetching from kafka", zap.Time("occurAt", log.OccurAt), zap.Time("end", kspf.end))
+			logger.Logger.Info("time of log record is later than end time, finish fetching from kafka", zap.Time("occurAt", log.OccurAt), zap.Time("end", kspf.end))
 			break
 		}
 

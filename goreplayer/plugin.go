@@ -37,4 +37,3 @@ func Load(path string) (APISelector, error) {
 	}
 	return ConvertAPISelector(build), nil
 }
-

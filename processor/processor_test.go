@@ -1,11 +1,11 @@
 package processor
 
 import (
-	"testing"
+	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/wosai/havok/types"
 	"net/url"
-	"errors"
+	"testing"
 )
 
 func TestRandStringBytesMaskImprSrc0(t *testing.T) {

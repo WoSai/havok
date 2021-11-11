@@ -1,6 +1,8 @@
 package types
 
 import (
+	"github.com/wosai/havok/internal/logger"
+	"go.uber.org/zap"
 	"sort"
 	"strconv"
 	"sync"
@@ -8,7 +10,6 @@ import (
 	"time"
 
 	pb "github.com/wosai/havok/protobuf"
-	"go.uber.org/zap"
 )
 
 var (
@@ -185,7 +186,7 @@ func (as *AttackerStats) totalQPS() float64 {
 // currentQPS 最近12秒的QPS
 func (as *AttackerStats) currentQPS() float64 {
 	if as.startTime.IsZero() || as.lastRequestTime.IsZero() {
-		Logger.Warn("no start or end time")
+		logger.Logger.Warn("no start or end time")
 		return 0
 	}
 
@@ -208,7 +209,7 @@ func (as *AttackerStats) currentQPS() float64 {
 		}
 	}
 	if total == 0 {
-		Logger.Warn("empty total value", zap.Int64("now", now.Unix()), zap.Int64("start", start.Unix()),
+		logger.Logger.Warn("empty total value", zap.Int64("now", now.Unix()), zap.Int64("start", start.Unix()),
 			zap.Any("trend", as.trendSuccess))
 		return 0
 	}
@@ -310,7 +311,7 @@ func (as *AttackerStats) percentile(f float64) time.Duration {
 			return roundedMillisecondToDuration(roundedMillisecond(val))
 		}
 	}
-	Logger.Error("unreachable code")
+	logger.Logger.Error("unreachable code")
 	return ZeroDuration // occur error
 }
 

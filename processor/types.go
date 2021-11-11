@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"github.com/wosai/havok/logger"
 	"github.com/wosai/havok/types"
 )
 
@@ -39,8 +38,4 @@ type (
 
 	// AssertFunc 通用的断言方法定义
 	AssertFunc func(s *types.Session, key string, data interface{}, params []interface{}) error
-)
-
-var (
-	Logger = logger.Logger
 )

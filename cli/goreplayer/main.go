@@ -2,82 +2,113 @@ package main
 
 import (
 	"flag"
-	"os"
-	"strconv"
-
-	"encoding/json"
 	"fmt"
-	"github.com/wosai/havok/apollo"
 	"github.com/wosai/havok/goreplayer"
+	"github.com/wosai/havok/internal/logger"
+	"github.com/wosai/havok/internal/option"
+	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 )
 
 var (
-	version             = "(git commit revision)"
-	host                string
-	rule                string
-	selector            string
-	keepAlive           bool
-	replayerConcurrency = "REPLAYER_CONCURRENCY"
-	processConfig       replayer.ProcessConfig
+	version = "(git commit revision)"
+	//host                string
+	//rule                string
+	//selector            string
+	//keepAlive           bool
+	//replayerConcurrency = "REPLAYER_CONCURRENCY"
+	processConfig replayer.ProcessConfig
+	ReplayerOpt   = option.GoreplayerOption{}
+
+	configurationFile            string
+	configurationApolloHost      string
+	configurationApolloAppID     string
+	configurationApolloNameSpace string
+	configurationApolloKey       string
 )
 
+func ConvertLoggerConfig(opt option.LoggerOption) logger.Config {
+	return logger.Config{
+		opt.Level,
+		opt.Name,
+		opt.Filename,
+		opt.MaxSize,
+		opt.MaxAge,
+		opt.MaxBackups,
+		opt.LocalTime,
+		opt.Compress,
+	}
+}
+
 func main() {
-	flag.StringVar(&host, "host", "127.0.0.1:16300", "the grpc host address")
-	flag.StringVar(&rule, "rule", "rules.json", "rule of processor")
-	flag.StringVar(&selector, "selector", "", "api selector plugin")
-	flag.BoolVar(&keepAlive, "keepAlive", false, "http client keep alive")
+	flag.StringVar(&configurationFile, "config", "./cli", "dispatcher配置文件")
+	flag.StringVar(&configurationApolloHost, "apollo_host", "", "apollo host")
+	flag.StringVar(&configurationApolloAppID, "apollo_appid", "", "apollo appid")
+	flag.StringVar(&configurationApolloNameSpace, "apollo_namespace", "", "apollo namespace")
+	flag.StringVar(&configurationApolloKey, "apollo_key", "", "apollo key name")
 	flag.Parse()
 
-	if data, err := apollo.LoadConfigurationFromApollo(); err == nil {
-		replayer.Logger.Info("get configuration from apollo", zap.String("config", data))
-		if data == "" {
-			replayer.Logger.Panic("empty replayer config!!!")
-		}
-		err := json.Unmarshal([]byte(data), &processConfig)
-		if err != nil {
-			replayer.Logger.Panic("failed to serialized to ProcessConfig", zap.String("data", data))
-		} else {
-			replayer.Logger.Info("succeed to serialized to ProcessConfig")
-		}
+	if configurationApolloHost != "" {
+		option.LoadFromApollo(&ReplayerOpt, configurationApolloHost, configurationApolloAppID, configurationApolloNameSpace, configurationApolloKey)
+		logger.BuildLogger(ReplayerOpt.Logger)
+		logger.Logger.Info("loaded apollo config", zap.Any("option", ReplayerOpt), zap.String("version", version))
 	} else {
-		replayer.Logger.Info("got error when get replayer config from apollo, try to load local config", zap.Error(err))
-		pc, err := replayer.NewProcessorConfigFromFile(rule)
-		if err != nil {
-			replayer.Logger.Panic("failed to parse rule", zap.Error(err))
-		} else {
-			processConfig = pc
-		}
+		option.LoadFromFile(&ReplayerOpt, configurationFile)
+		logger.BuildLogger(ReplayerOpt.Logger)
+		logger.Logger.Info("loaded config file", zap.Any("option", ReplayerOpt), zap.String("version", version))
 	}
-	replayer.Logger.Info("load rules of replayer", zap.Any("rule", processConfig), zap.String("version", version))
-	replayer.Logger.Info("current replayer keepAlive status", zap.Bool("status", keepAlive))
-	replayer.DefaultReplayer = replayer.RefreshDefaultReplayer(keepAlive)
 
-	ins, err := replayer.NewInspector(host)
+	//
+	//if data, err := apollo.LoadConfigurationFromApollo(); err == nil {
+	//	replayer.Logger.Info("get configuration from apollo", zap.String("config", data))
+	//	if data == "" {
+	//		replayer.Logger.Panic("empty replayer config!!!")
+	//	}
+	//	err := json.Unmarshal([]byte(data), &processConfig)
+	//	if err != nil {
+	//		replayer.Logger.Panic("failed to serialized to ProcessConfig", zap.String("data", data))
+	//	} else {
+	//		replayer.Logger.Info("succeed to serialized to ProcessConfig")
+	//	}
+	//} else {
+	//replayer.Logger.Info("got error when get replayer config from apollo, try to load local config", zap.Error(err))
+	if ReplayerOpt.Goreplayer.Rule.Apollo.Host != "" {
+		var err error
+		processConfig, err = replayer.NewProcessorConfigFromApollo(ReplayerOpt.Goreplayer.Rule.Apollo)
+		if err != nil {
+			logger.Logger.Panic("failed to load rule from apollo", zap.Error(err))
+		}
+		logger.Logger.Info("load rule from apollo", zap.Any("rule", processConfig))
+	} else {
+		var err error
+		processConfig, err = replayer.NewProcessorConfigFromFile(ReplayerOpt.Goreplayer.Rule.Path)
+		if err != nil {
+			logger.Logger.Panic("failed to load rule from file", zap.Error(err))
+		}
+		logger.Logger.Info("load rule from file", zap.Any("rule", processConfig))
+	}
+	replayer.DefaultReplayer = replayer.RefreshDefaultReplayer(ReplayerOpt.Goreplayer.KeepAlive)
+
+	ins, err := replayer.NewInspector(ReplayerOpt.Goreplayer.Host)
 	if err != nil {
-		replayer.Logger.Panic("failed to connect dispatcher")
+		logger.Logger.Panic("failed to connect dispatcher")
 	}
 
 	replayer.DefaultReplayer.Selector = replayer.DefaultSelector
-	if selector != "" {
-		selectorFunc, err := replayer.Load(selector)
+	if ReplayerOpt.Goreplayer.Selector != "" {
+		selectorFunc, err := replayer.Load(ReplayerOpt.Goreplayer.Selector)
 		if err != nil {
-			replayer.Logger.Panic(fmt.Sprintf("failed to load api selector: %s", selector), zap.Error(err))
+			logger.Logger.Panic(fmt.Sprintf("failed to load api selector: %s", ReplayerOpt.Goreplayer.Selector), zap.Error(err))
 			return
 		}
 		replayer.DefaultReplayer.Selector = selectorFunc
-		replayer.Logger.Info(fmt.Sprintf("succeed to load api selector: %s", selector))
+		logger.Logger.Info(fmt.Sprintf("succeed to load api selector: %s", ReplayerOpt.Goreplayer.Selector))
 	}
 
 	replayer.DefaultReplayer.PH = processConfig.Build()
-	if os.Getenv(replayerConcurrency) != "" {
-		rc, err := strconv.Atoi(os.Getenv(replayerConcurrency))
-		if err != nil {
-			replayer.DefaultReplayer.Concurrency = rc
-		}
-	}
+	replayer.DefaultReplayer.Concurrency = ReplayerOpt.Goreplayer.ReplayerConcurrency
 
 	go replayer.DefaultReplayer.Run()
 	replayer.Runner(replayer.DefaultReplayer)
-	replayer.Logger.Fatal("replayer down", zap.Error(ins.Run()))
+	logger.Logger.Fatal("replayer down", zap.Error(ins.Run()))
 }

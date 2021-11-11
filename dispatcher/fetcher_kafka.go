@@ -3,6 +3,7 @@ package dispatcher
 import (
 	"context"
 	"errors"
+	"github.com/wosai/havok/internal/logger"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -172,7 +173,7 @@ func NewKafkaFetcher(brokers []string, topic string, start, end int) (*KafkaFetc
 	if err != nil {
 		return nil, err
 	}
-	Logger.Info("loop up partitions of topic", zap.String("topic", topic), zap.Int("partition_count", len(ps)), zap.String("broker", brokers[0]))
+	logger.Logger.Info("loop up partitions of topic", zap.String("topic", topic), zap.Int("partition_count", len(ps)), zap.String("broker", brokers[0]))
 
 	fetcher := &KafkaFetcher{
 		baseFetcher: newBaseFetcher(),
@@ -196,16 +197,16 @@ func NewKafkaFetcher(brokers []string, topic string, start, end int) (*KafkaFetc
 				MaxBytes:  10e6,
 			})
 			reader.SetOffset(kafka.FirstOffset)
-			Logger.Info("start to read message from partition", zap.Int("partition", p.ID), zap.String("topic", fetcher.topic))
+			logger.Logger.Info("start to read message from partition", zap.Int("partition", p.ID), zap.String("topic", fetcher.topic))
 			for {
 				_, err := reader.ReadMessage(context.Background())
 				if err != nil {
-					Logger.Error("occur error when reading messages from kafka", zap.Error(err), zap.Int("partition", p.ID))
+					logger.Logger.Error("occur error when reading messages from kafka", zap.Error(err), zap.Int("partition", p.ID))
 					break
 				}
 				atomic.AddInt64(&fetcher.counter, 1)
 			}
-			Logger.Warn("quit for loop")
+			logger.Logger.Warn("quit for loop")
 		}(partition)
 	}
 
@@ -217,7 +218,7 @@ func NewKafkaFetcher(brokers []string, topic string, start, end int) (*KafkaFetc
 			current = atomic.LoadInt64(&fetcher.counter)
 			fetcher.qps = current - last
 			last = current
-			Logger.Info("KafkaFetcher QPS", zap.Int64("fetcher_qps", fetcher.qps), zap.Int64("counter", last))
+			logger.Logger.Info("KafkaFetcher QPS", zap.Int64("fetcher_qps", fetcher.qps), zap.Int64("counter", last))
 		}
 	}()
 

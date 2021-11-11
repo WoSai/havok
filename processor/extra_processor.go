@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"github.com/wosai/havok/internal/logger"
 	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 )
@@ -57,7 +58,7 @@ func (ep *ExtraProcessor) Act(s *types.Session, data interface{}) (interface{}, 
 			}
 		}
 	}
-	Logger.Info("extra act", zap.Any("act", ss))
+	logger.Logger.Info("extra act", zap.Any("act", ss))
 	return ss, nil
 }
 

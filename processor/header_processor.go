@@ -3,12 +3,13 @@ package processor
 import (
 	"errors"
 	"fmt"
+	"github.com/wosai/havok/internal/logger"
 	"net/http"
 	"regexp"
 	"strconv"
 
-	"github.com/wosai/havok/types"
 	"github.com/google/uuid"
+	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +49,7 @@ func (hhp *HTTPHeaderProcessor) Act(session *types.Session, h interface{}) (inte
 		for _, action := range unit.Actions {
 			switch action.Method {
 			case actionPrint:
-				Logger.Info("print key", zap.String(unit.Key, header.Get(unit.Key)))
+				logger.Logger.Info("print key", zap.String(unit.Key, header.Get(unit.Key)))
 
 			case actionSetValue:
 				v, err := checkIfStringType(action.Params)

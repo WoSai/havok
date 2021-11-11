@@ -1,9 +1,9 @@
 package apollo
 
 import (
+	"errors"
 	"github.com/shima-park/agollo"
 	"os"
-	"errors"
 )
 
 var (

@@ -1,6 +1,7 @@
 package dispatcher
 
 import (
+	"github.com/wosai/havok/internal/logger"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -39,7 +40,7 @@ func (rep *Replayer) Send(msg *pb.DispatcherEvent) {
 		rep.input <- msg
 		return
 	}
-	Logger.Error("replayer channel status set to closed", zap.String("replayer", rep.ID), zap.Int32("event", int32(msg.Type)))
+	logger.Logger.Error("replayer channel status set to closed", zap.String("replayer", rep.ID), zap.Int32("event", int32(msg.Type)))
 }
 
 func (rep *Replayer) Recv() <-chan *pb.DispatcherEvent {
@@ -54,7 +55,7 @@ func (rep *Replayer) CloseChannel() {
 	atomic.StoreInt32(&rep.closed, 1)
 	time.Sleep(3 * time.Second)
 	close(rep.input)
-	Logger.Warn("closed replayer channel", zap.String("replayer", rep.ID))
+	logger.Logger.Warn("closed replayer channel", zap.String("replayer", rep.ID))
 }
 
 func NewReplayerManager() *ReplayerManager {
@@ -81,12 +82,12 @@ func (rm *ReplayerManager) ReplaceReplayer(replayer *Replayer) {
 func (rm *ReplayerManager) CloseAndRemove(rid string) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	Logger.Info("close and remove replayer", zap.String("replayer", rid))
+	logger.Logger.Info("close and remove replayer", zap.String("replayer", rid))
 	if val, loaded := rm.replayers[rid]; loaded {
 		val.Close()
-		Logger.Info("found replayer to delete", zap.String("replayer", rid))
+		logger.Logger.Info("found replayer to delete", zap.String("replayer", rid))
 		delete(rm.replayers, rid)
-		Logger.Info("deleted replayer", zap.String("replayer", rid))
+		logger.Logger.Info("deleted replayer", zap.String("replayer", rid))
 
 		go func(c *Replayer) {
 			c.CloseChannel()
@@ -119,7 +120,7 @@ func (rm *ReplayerManager) Deliver(rid string, de *pb.DispatcherEvent) error {
 
 	val, ok := rm.replayers[rid]
 	if !ok {
-		Logger.Error("replayer not found", zap.String("replayer", rid))
+		logger.Logger.Error("replayer not found", zap.String("replayer", rid))
 		return ErrReplayerNotExits
 	}
 	val.Send(de)

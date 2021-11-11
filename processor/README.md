@@ -5,8 +5,6 @@ Processor用户手册
 
 #### Key
 
-sh
-
 #### Action
 
 |action| params | 备注 |

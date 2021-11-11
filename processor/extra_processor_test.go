@@ -1,10 +1,10 @@
 package processor
 
 import (
-	"testing"
-	"github.com/wosai/havok/types"
-	"github.com/wosai/havok/protobuf"
 	"github.com/stretchr/testify/assert"
+	"github.com/wosai/havok/protobuf"
+	"github.com/wosai/havok/types"
+	"testing"
 )
 
 func TestExtraProcessor_Act0(t *testing.T) {
@@ -14,8 +14,8 @@ func TestExtraProcessor_Act0(t *testing.T) {
 	var units = []*Unit{
 		{
 			Key: ".", Actions: []*Actor{
-			{"extra_send1", []interface{}{"url1", "method1", "header1", "body1"}},
-			{"extra_send1", []interface{}{"url2", "method2", "header2", "body2"}}},
+				{"extra_send1", []interface{}{"url1", "method1", "header1", "body1"}},
+				{"extra_send1", []interface{}{"url2", "method2", "header2", "body2"}}},
 		},
 	}
 	processor := NewExtraProcssor(units)
@@ -40,9 +40,9 @@ func TestExtraProcessor_Act1(t *testing.T) {
 	var units = []*Unit{
 		{
 			Key: ".", Actions: []*Actor{
-			{"extra_send1", []interface{}{"url1", "method1", "header1", "body1"}},
-			{"extra_send2", []interface{}{"url2", "method2", "header2", "body2"}},
-			{"extra_send1", []interface{}{"url3", "method3", "header3", "body3"}}},
+				{"extra_send1", []interface{}{"url1", "method1", "header1", "body1"}},
+				{"extra_send2", []interface{}{"url2", "method2", "header2", "body2"}},
+				{"extra_send1", []interface{}{"url3", "method3", "header3", "body3"}}},
 		},
 	}
 	processor := NewExtraProcssor(units)

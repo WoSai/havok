@@ -5,16 +5,15 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/wosai/havok/types"
-	"github.com/stretchr/testify/assert"
 	"errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/wosai/havok/types"
 )
 
 var (
-	Host = "api.github.com"
-	newOrg = "shouqianba"
+	Host      = "api.github.com"
+	newOrg    = "shouqianba"
 	newAction = "query"
-
 
 	urlUnits = []*Unit{
 		{

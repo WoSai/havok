@@ -3,6 +3,7 @@ package replayer
 import (
 	"context"
 	"errors"
+	"github.com/wosai/havok/internal/logger"
 	"io"
 	"time"
 
@@ -63,21 +64,21 @@ func (ins *Inspector) Run() error {
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
-			Logger.Error("eof", zap.Error(err))
+			logger.Logger.Error("eof", zap.Error(err))
 			return err
 		}
 		if err != nil {
 			stream.CloseSend()
-			Logger.Error("failed to rec msg", zap.Error(err))
+			logger.Logger.Error("failed to rec msg", zap.Error(err))
 			return err
 		}
 
 		switch msg.Type {
 		case pb.DispatcherEvent_Subscribed:
 			//订阅成功
-			Logger.Info("Subscribed successfully, default job configuration", zap.Any("defaultRate", defaultRate))
+			logger.Logger.Info("Subscribed successfully, default job configuration", zap.Any("defaultRate", defaultRate))
 		case pb.DispatcherEvent_Disconnected:
-			Logger.Info("Stop subscribe")
+			logger.Logger.Info("Stop subscribe")
 			//订阅失败/中断
 		case pb.DispatcherEvent_JobStart:
 			// 订阅开始
@@ -85,7 +86,7 @@ func (ins *Inspector) Run() error {
 			DefaultReplayer.refreshReplayerConfig(jobConfig)
 		case pb.DispatcherEvent_JobStop:
 			// 订阅结束
-			Logger.Info("Job end")
+			logger.Logger.Info("Job end")
 		case pb.DispatcherEvent_JobConfiguration:
 			//配置刷新
 			jobConfig := msg.GetJob()
