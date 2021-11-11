@@ -15,7 +15,7 @@ type (
 	options struct {
 		appId           string // default ""
 		namespace       string // default "application"
-		configServerURL string // default "beta.apollo.config.shouqianba.com"
+		configServerURL string // default ""
 	}
 
 	Client struct {
