@@ -3,8 +3,7 @@ package apollo
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/shima-park/agollo"
+	agollo "github.com/philchia/agollo/v4"
 	"reflect"
 	"strconv"
 	"strings"
@@ -20,7 +19,7 @@ type (
 	}
 
 	Client struct {
-		agollo.Agollo
+		agollo.Client
 		opt options
 	}
 
@@ -58,17 +57,21 @@ func NewClient(opts ...Option) (*Client, error) {
 	if opt.appId == "" {
 		return nil, errors.New("apollo appId cannot be empty.")
 	}
-	apollo, err := agollo.New(opt.configServerURL, opt.appId, agollo.PreloadNamespaces(opt.namespace))
-	if err != nil {
-		return nil, fmt.Errorf("failed connecting to apollo. %w", err)
-	}
-	_ = apollo.Start()
-	return &Client{apollo, *opt}, nil
+	client := agollo.NewClient(&agollo.Conf{
+		AppID: opt.appId,
+		NameSpaceNames: []string{opt.namespace},
+		MetaAddr: opt.configServerURL,
+	})
+	_ = client.Start()
+	return &Client{client, *opt}, nil
 }
 
 func (c *Client) GetConfig(key string) (interface{}, bool) {
-	conf, ok := c.GetNameSpace(c.opt.namespace)[key]
-	return conf, ok
+	conf := c.GetString(key, agollo.WithNamespace(c.opt.namespace))
+	if conf != "" {
+		return conf, true
+	}
+	return "", false
 }
 
 func unmarshalFromApollo(conf map[string]interface{}, opts interface{}) {

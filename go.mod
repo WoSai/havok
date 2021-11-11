@@ -12,13 +12,13 @@ require (
 	github.com/jacexh/gopkg/zaprotate v0.0.0-20210825023717-c4d755320c90
 	github.com/jacexh/multiconfig v0.1.2
 	github.com/json-iterator/go v1.1.12
+	github.com/philchia/agollo/v4 v4.1.3
 	github.com/prometheus/client_golang v1.11.0
 	github.com/segmentio/kafka-go v0.4.23
-	github.com/shima-park/agollo v1.2.12
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.19.1
-	golang.org/x/net v0.0.0-20211109214657-ef0fda0de508
+	golang.org/x/net v0.0.0-20211111083644-e5c967477495
 	google.golang.org/grpc v1.42.0
 	gopkg.in/olivere/elastic.v5 v5.0.86
 	gopkg.in/yaml.v2 v2.4.0
@@ -34,7 +34,7 @@ require (
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839 // indirect
 	github.com/klauspost/compress v1.9.8 // indirect
@@ -52,7 +52,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40 // indirect
 	golang.org/x/text v0.3.6 // indirect
-	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
+	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect

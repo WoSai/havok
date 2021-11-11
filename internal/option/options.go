@@ -72,15 +72,6 @@ type (
 		Influxdb InfluxDBOption
 	}
 
-	//ProcessConfigBlock struct {
-	//	Type   string          `json:"type,omitempty"`
-	//	Header processor.Units `json:"header,omitempty"`
-	//	URL    processor.Units `json:"url,omitempty"`
-	//	Params processor.Units `json:"params,omitempty"`
-	//	Body   processor.Units `json:"body,omitempty"`
-	//	Extra  processor.Units `json:"extra,omitempty"`
-	//}
-
 	Dispatcher struct {
 		Job      Job     `required:"true"`
 		Fetcher  Fetcher `required:"true"`

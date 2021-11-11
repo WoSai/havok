@@ -92,14 +92,6 @@ func findConfigFile() string {
 	panic(errors.New("cannot find the config file"))
 }
 
-//func LoadConfig() *Option {
-//	f := findConfigFile()
-//	opt := new(Option)
-//	loader := multiconfig.NewWithPathAndEnvPrefix(f, environmentVariablesPrefix)
-//	loader.MustLoad(opt)
-//	return opt
-//}
-
 func LoadFromApollo(conf interface{}, host, appid, namespace, keyname string) {
 	if host == "" || appid == "" || namespace == "" {
 		panic("host/appID/namespace not empty")

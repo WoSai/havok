@@ -12,11 +12,6 @@ import (
 
 var (
 	version = "(git commit revision)"
-	//host                string
-	//rule                string
-	//selector            string
-	//keepAlive           bool
-	//replayerConcurrency = "REPLAYER_CONCURRENCY"
 	processConfig replayer.ProcessConfig
 	ReplayerOpt   = option.GoreplayerOption{}
 
@@ -26,19 +21,6 @@ var (
 	configurationApolloNameSpace string
 	configurationApolloKey       string
 )
-
-func ConvertLoggerConfig(opt option.LoggerOption) logger.Config {
-	return logger.Config{
-		opt.Level,
-		opt.Name,
-		opt.Filename,
-		opt.MaxSize,
-		opt.MaxAge,
-		opt.MaxBackups,
-		opt.LocalTime,
-		opt.Compress,
-	}
-}
 
 func main() {
 	flag.StringVar(&configurationFile, "config", "./cli", "dispatcher配置文件")
@@ -57,21 +39,6 @@ func main() {
 		logger.BuildLogger(ReplayerOpt.Logger)
 		logger.Logger.Info("loaded config file", zap.Any("option", ReplayerOpt), zap.String("version", version))
 	}
-
-	//
-	//if data, err := apollo.LoadConfigurationFromApollo(); err == nil {
-	//	replayer.Logger.Info("get configuration from apollo", zap.String("config", data))
-	//	if data == "" {
-	//		replayer.Logger.Panic("empty replayer config!!!")
-	//	}
-	//	err := json.Unmarshal([]byte(data), &processConfig)
-	//	if err != nil {
-	//		replayer.Logger.Panic("failed to serialized to ProcessConfig", zap.String("data", data))
-	//	} else {
-	//		replayer.Logger.Info("succeed to serialized to ProcessConfig")
-	//	}
-	//} else {
-	//replayer.Logger.Info("got error when get replayer config from apollo, try to load local config", zap.Error(err))
 	if ReplayerOpt.Goreplayer.Rule.Apollo.Host != "" {
 		var err error
 		processConfig, err = replayer.NewProcessorConfigFromApollo(ReplayerOpt.Goreplayer.Rule.Apollo)

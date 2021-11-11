@@ -1,6 +1,8 @@
 package dispatcher
 
 import (
+	"github.com/wosai/havok/internal/logger"
+	"github.com/wosai/havok/internal/option"
 	"testing"
 	"time"
 
@@ -12,6 +14,10 @@ var (
 	replayBegin int64 = 1405544146132
 	replayEnd         = replayBegin + int64(time.Minute.Nanoseconds()/1e6)
 )
+
+func init() {
+	logger.BuildLogger(option.LoggerOption{})
+}
 
 func genLogRecord(msec int64) *LogRecordWrapper {
 	return &LogRecordWrapper{

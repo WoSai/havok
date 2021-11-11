@@ -14,71 +14,6 @@ import (
 	"os"
 )
 
-//type (
-//	dispatcherConfig struct {
-//		Job      job
-//		Fetcher  fetcher
-//		Analyzer analyzer
-//		Service  service
-//		Reporter reporter
-//	}
-//
-//	job struct {
-//		Rate  float32
-//		Speed float32
-//		Begin int64
-//		End   int64
-//	}
-//
-//	fetcher struct {
-//		Type string
-//		File struct {
-//			Path string
-//		}
-//		Sls struct {
-//			AccessKeyId     string `toml:"access_key_id"`
-//			AccessKeySecret string `toml:"access_key_secret"`
-//			Region          string
-//			Project         string
-//			Logstore        string
-//			Expression      string
-//			Concurrency     int
-//			PreDownload     int `toml:"pre-download"`
-//		}
-//		Kafka struct {
-//			Brokers []string
-//			Topic   string
-//			Offset  int64
-//		}
-//	}
-//
-//	analyzer struct {
-//		Name    string
-//		Handler struct{
-//			Enable []string
-//			Plugin []string
-//		}
-//	}
-//
-//	service struct {
-//		GRPC string `toml:"grpc"`
-//		HTTP string `toml:"http"`
-//	}
-//
-//	reporter struct {
-//		Style struct {
-//			Name string
-//		}
-//
-//		Influxdb struct {
-//			Url      string
-//			Database string
-//			User     string
-//			Password string
-//		}
-//	}
-//)
-
 var (
 	configurationFile            string
 	configurationApolloHost      string
@@ -96,10 +31,10 @@ var (
 
 func init() {
 	flag.StringVar(&configurationFile, "config", "./cli", "dispatcher配置文件")
-	flag.StringVar(&configurationApolloHost, "apollo_host", "", "apollo host")
-	flag.StringVar(&configurationApolloAppID, "apollo_appid", "", "apollo appid")
-	flag.StringVar(&configurationApolloNameSpace, "apollo_namespace", "", "apollo namespace")
-	flag.StringVar(&configurationApolloKey, "apollo_key", "", "apollo key name")
+	flag.StringVar(&configurationApolloHost, "apollo_host", "beta.apollo.config.shouqianba.com", "apollo host")
+	flag.StringVar(&configurationApolloAppID, "apollo_appid", "16001", "apollo appid")
+	flag.StringVar(&configurationApolloNameSpace, "apollo_namespace", "test.dev", "apollo namespace")
+	flag.StringVar(&configurationApolloKey, "apollo_key", "jty.yml", "apollo key name")
 }
 
 func handle(mux *http.ServeMux, p dispatcher.Provider) {

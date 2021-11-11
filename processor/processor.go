@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/wosai/havok/internal/logger"
+	"github.com/wosai/havok/internal/option"
 	"math/rand"
 	"net/url"
 	"regexp"
@@ -18,6 +19,10 @@ import (
 	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 )
+
+func init() {
+	logger.BuildLogger(option.LoggerOption{})
+}
 
 type (
 	// Processor 对http响应报文的处理器
