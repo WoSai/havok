@@ -105,10 +105,11 @@ func LoadFromApollo(conf interface{}, host, appid, namespace, keyname string) {
 	if !ok {
 		panic(fmt.Sprintf("%s in %s/%s is empty", keyname, appid, namespace))
 	}
-	if _, err := os.Stat("./" + keyname); os.IsExist(err) {
-		os.Remove("./" + keyname)
+	filename := "./" + keyname
+	if _, err := os.Stat(filename); os.IsExist(err) {
+		os.Remove(filename)
 	}
-	file, err := os.Create("./" + keyname)
+	file, err := os.Create(filename)
 	if err != nil {
 		panic(err)
 	}
@@ -116,7 +117,7 @@ func LoadFromApollo(conf interface{}, host, appid, namespace, keyname string) {
 	if err != nil {
 		panic(err)
 	}
-	loader := multiconfig.NewWithPathAndEnvPrefix("./"+keyname, environmentVariablesPrefix)
+	loader := multiconfig.NewWithPathAndEnvPrefix(filename, environmentVariablesPrefix)
 	loader.MustLoad(conf)
 }
 
