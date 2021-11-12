@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package dispatcher;
+
+service Havok {
+    rpc Subscribe (ReplayerRegistration) returns (stream DispatcherEvent) {
+    }
+    rpc Report (StatsReport) returns (ReportReturn) { // 返回值标示在哪次request_id中断
+    }
+}
+
+message DispatcherEvent {
+    enum Type {
+        Subscribed = 0; // 订阅成功
+        Disconnected = 1; // 中断订阅
+        Ping = 2; // 心跳包
+
+        LogRecord = 10; // http日志回放，未来可能增加tcp协议回放
+
+        JobStart = 20; // 任务开始，此时需要读取JobConfiguration
+        JobStop = 21; // 任务异常结束
+        JobFinish = 22; // 任务自然结束
+        JobConfiguration = 29; // 下发任务配置，用于任务进行中刷新配置
+
+        StatsCollection = 30; // 采集node的统计报告
+        OccurError = 99; // 发生错误
+    }
+    Type type = 1;
+    oneof data {
+        LogRecord log = 2;
+        JobConfiguration job = 3;
+        StatsRequest stats = 4;
+    }
+}
+
+message ReplayerRegistration {
+    string id = 1;
+}
+
+message LogRecord {
+    string url = 1; // eg. http://api.github.com/orgs/Wosai/actions/permissions
+    string method = 2; // GET/POST ...
+    map<string, string> header = 3; // 请求头
+    bytes body = 8; // 完整透传body内容
+}
+
+message JobConfiguration {
+    float rate = 1; // 回放增益倍数，1.0表示1:1回放，2.0表示放大一倍回放
+    float speed = 2; // 回放速度， 1.0表示原速回放，2.0表示快放一倍
+    int64 begin = 3; // 开始回放时间，毫秒级别
+    int64 end = 4; // 结束回放时间，毫秒级别
+    int64 stuck = 5; //模拟流量锯齿特性(临时阻塞replayer消费)
+}
+
+message StatsRequest {
+    int32 request_id = 1; // 请求批次id
+    int64 request_time = 2; // 请求发起时间
+}
+
+message StatsReport {
+    string replayer_id = 1;
+    int32 request_id = 2;
+    int64 report_time = 3;
+    repeated AttackerStatsWrapper stats = 4;
+    map<string, double> performance_stats = 5;
+}
+
+message AttackerStatsWrapper {
+    string name = 1; // 统计对象名称
+    int64 requests = 2; // 成功请求次数
+    int64 failures = 3; // 失败请求次数
+    int64 total_response_time = 4;
+    int64 min_response_time = 5;
+    int64 max_response_time = 6;
+    map<int64, int64> trend_success = 7;
+    map<int64, int64> trend_failures = 8;
+    map<int64, int64> response_times = 9;
+    map<string, int64> failure_times = 10;
+    int64 start_time = 11;
+    int64 last_request_time = 12;
+}
+
+message ReportReturn {
+    int32 request_id = 1;
+}
