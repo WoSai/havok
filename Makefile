@@ -1,0 +1,3 @@
+.PHONY: test
+test:
+	go test -covermode=atomic -v -coverprofile=coverage.txt ./...
