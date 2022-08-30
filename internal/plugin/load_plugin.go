@@ -23,7 +23,7 @@ type (
 	}
 )
 
-func BuildLoader(opt *option.PluginOption) *loader {
+func BuildLoader(opt *option.PluginOption) Loader {
 	return &loader{
 		config: opt,
 		path:   opt.Path,
