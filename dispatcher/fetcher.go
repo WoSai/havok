@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "github.com/wosai/havok/protobuf"
 	sls "github.com/aliyun/aliyun-log-go-sdk"
 	"github.com/segmentio/kafka-go"
+	pb "github.com/wosai/havok/protobuf"
 	"go.uber.org/zap"
 	"gopkg.in/olivere/elastic.v5"
 )
@@ -23,10 +23,11 @@ import (
 type (
 	// fetcher 定义日志收集者对象
 	Fetcher interface {
-		TimeRange(begin, end time.Time)
-		WithAnalyzer(Analyzer)
-		SetOutput(chan<- *LogRecordWrapper)
-		SubTask
+		Read(chan<- *LogRecordWrapper)
+	}
+
+	Decoder interface {
+		Decode([]byte) (*LogRecordWrapper, error)
 	}
 
 	// ElasticFetcher ElasticSearch的日志收集对象

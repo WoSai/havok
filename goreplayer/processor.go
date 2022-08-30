@@ -1,13 +1,36 @@
 package replayer
 
 import (
+	"context"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 
 	"github.com/wosai/havok/processor"
 )
 
 type (
-	HTTPAPI string
+	Handler interface {
+		Handle(ctx context.Context, request *Payload, response ResponseReader) error
+	}
+
+	Middleware func(next Handler) Handler
+
+	Payload struct {
+		Method string
+		URL    url.URL
+		Header map[string][]string
+		Body   []byte
+	}
+
+	ResponseReader interface {
+		Method() string
+		URL() *url.URL
+		Header() http.Header
+		Read([]byte) (int, error)
+	}
+
+	HTTPAPI   string
 	FlowScope string
 
 	processConfigBlock struct {
