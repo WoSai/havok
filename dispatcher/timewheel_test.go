@@ -1,6 +1,7 @@
 package dispatcher
 
 import (
+	"github.com/wosai/havok/pkg"
 	"testing"
 	"time"
 
@@ -13,8 +14,8 @@ var (
 	replayEnd         = replayBegin + int64(time.Minute.Nanoseconds()/1e6)
 )
 
-func genLogRecord(msec int64) *LogRecordWrapper {
-	return &LogRecordWrapper{
+func genLogRecord(msec int64) *pkg.LogRecordWrapper {
+	return &pkg.LogRecordWrapper{
 		OccurAt: ParseMSec(msec),
 	}
 }

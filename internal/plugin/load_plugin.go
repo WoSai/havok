@@ -1,8 +1,9 @@
 package plugin
 
 import (
+	"github.com/wosai/havok/internal/logger"
 	"github.com/wosai/havok/internal/option"
-	"github.com/wosai/havok/logger"
+	"github.com/wosai/havok/pkg"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"path/filepath"
@@ -10,10 +11,12 @@ import (
 	"strings"
 )
 
+var DefaultLoader Loader = (*loader)(nil)
+
 type (
 	Loader interface {
 		Load() error
-		Manager() Manager
+		ManageRepo() ManageRepo
 	}
 
 	loader struct {
@@ -24,13 +27,15 @@ type (
 )
 
 func BuildLoader(opt *option.PluginOption) Loader {
-	return &loader{
+	l := &loader{
 		config: opt,
 		path:   opt.Path,
 	}
+	DefaultLoader = l
+	return l
 }
 
-func (l *loader) Manager() Manager {
+func (l *loader) ManageRepo() ManageRepo {
 	return l.manager
 }
 
@@ -61,14 +66,14 @@ func (l *loader) Load() error {
 	return nil
 }
 
-func (l *loader) initPlugin(p *plugin.Plugin, m Manager) error {
+func (l *loader) initPlugin(p *plugin.Plugin, m pkg.Manager) error {
 	iFunc, err := p.Lookup("InitPlugin")
 	if err != nil {
 		return err
 	}
 
-	initFunc := iFunc.(func(opt *option.PluginOption) error)
-	if err := initFunc(l.config); err != nil {
+	initFunc := iFunc.(func(opt *pkg.PluginOption) error)
+	if err := initFunc(l.config.Conf); err != nil {
 		return err
 	}
 
@@ -77,7 +82,7 @@ func (l *loader) initPlugin(p *plugin.Plugin, m Manager) error {
 		return err
 	}
 
-	registerFunc := rFunc.(func(m Manager) error)
+	registerFunc := rFunc.(func(m pkg.Manager) error)
 	err = registerFunc(m)
 	return err
 }

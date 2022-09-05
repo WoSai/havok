@@ -14,8 +14,7 @@ type (
 )
 
 var (
-	runnerFlag  = &RunnerFlag{stats: types.NewSummaryStats()}
-	sessionPool = types.NewSessionPool()
+	runnerFlag = &RunnerFlag{stats: types.NewSummaryStats()}
 )
 
 const (
@@ -31,7 +30,7 @@ func statistor() {
 }
 
 // 上交统计报告
-func submitter(replayer *Replayer) {
+func submitter(replayer *replayer) {
 	performanceStats := make(map[string]float64)
 	performanceStats[replayerTotalConcurrency] = float64(replayer.Concurrency)
 	for stats := range submitterPipeline {
@@ -43,7 +42,7 @@ func submitter(replayer *Replayer) {
 	}
 }
 
-func Runner(replayer *Replayer) {
+func Runner(replayer *replayer) {
 	go statistor()
 	go submitter(replayer)
 }

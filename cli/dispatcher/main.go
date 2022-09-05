@@ -3,6 +3,9 @@ package main
 import (
 	"errors"
 	"flag"
+	"github.com/wosai/havok/dispatcher"
+	"github.com/wosai/havok/internal/option"
+	"github.com/wosai/havok/internal/plugin"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,7 +13,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/wosai/havok/apollo"
-	"github.com/wosai/havok/dispatcher"
 	"github.com/wosai/havok/dispatcher/helper"
 	pb "github.com/wosai/havok/protobuf"
 	"go.uber.org/zap"
@@ -18,18 +20,11 @@ import (
 
 type (
 	dispatcherConfig struct {
-		Job      job
+		Job      *option.JobOption
 		Fetcher  fetcher
 		Analyzer analyzer
 		Service  service
 		Reporter reporter
-	}
-
-	job struct {
-		Rate  float32
-		Speed float32
-		Begin int64
-		End   int64
 	}
 
 	fetcher struct {
@@ -81,9 +76,6 @@ type (
 var (
 	configurationFile string
 	version           = "(git commit revision)"
-
-	// TODO add AnalyzeFuncs
-	analyzeFunc = map[string]dispatcher.AnalyzeFunc{}
 
 	defaultMux *http.ServeMux
 
@@ -137,8 +129,13 @@ func main() {
 	defaultReplayerManager := dispatcher.NewReplayerManager()
 	defaultReporter := startReporter(conf, defaultReplayerManager)
 
+	opt := option.LoadConfig()
+	dispatcher.Logger.Info("configuration", zap.Any("conf", conf))
+
+	plugin.BuildLoader(opt.Plugin)
+
 	// job 初始化行为
-	go startJob(conf)
+	go startJob(conf.Job)
 
 	go func() {
 		dispatcher.DefaultHavok.WithHashFunc(dispatcher.DefaultFNVHashPool.Hash).
@@ -211,71 +208,31 @@ func startReporter(conf dispatcherConfig, rm *dispatcher.ReplayerManager) *dispa
 	return rep
 }
 
-func startJob(conf dispatcherConfig) {
+func startJob(conf *option.JobOption) {
+	err := plugin.DefaultLoader.Load()
+	if err != nil {
+		panic(err)
+	}
+	multi := dispatcher.NewMultiFetcher(plugin.DefaultLoader.ManageRepo().GetFetchers()...)
+
 	jobConf := &pb.JobConfiguration{
-		Rate:  conf.Job.Rate,
-		Speed: conf.Job.Speed,
-		Begin: conf.Job.Begin,
-		End:   conf.Job.End,
+		Rate:  conf.Rate,
+		Speed: conf.Speed,
+		Begin: conf.Begin,
+		End:   conf.End,
 	}
 	job, err := dispatcher.NewJob(jobConf)
 	if err != nil {
 		dispatcher.Logger.Error("bad job configuration", zap.Error(err))
-		os.Exit(1)
+		panic(err)
 	}
-
-	var fetcher dispatcher.Fetcher
-
-	switch conf.Fetcher.Type {
-
-	case "file":
-		fetcher = dispatcher.NewFileFetcher(conf.Fetcher.File.Path)
-
-	case "concurrency-sls", "sls":
-		if conf.Fetcher.Sls.AccessKeyId == "" {
-			conf.Fetcher.Sls.AccessKeyId = os.Getenv("AccessKeyId")
-		}
-		if conf.Fetcher.Sls.AccessKeySecret == "" {
-			conf.Fetcher.Sls.AccessKeySecret = os.Getenv("AccessKeySecret")
-		}
-
-		fetcher, err = dispatcher.NewAliyunSLSConcurrencyFetcher(conf.Fetcher.Sls.AccessKeyId, conf.Fetcher.Sls.AccessKeySecret,
-			conf.Fetcher.Sls.Region, conf.Fetcher.Sls.Project, conf.Fetcher.Sls.Logstore, conf.Fetcher.Sls.Expression,
-			conf.Fetcher.Sls.Concurrency, conf.Fetcher.Sls.PreDownload)
-		if err != nil {
-			panic(err)
-		}
-		handle(defaultMux, fetcher.(*dispatcher.AliyunSLSConcurrencyFetcher)) // sls接口
-
-	case "kafka-single-partition":
-		fetcher, err = dispatcher.NewKafkaSinglePartitionFetcher(conf.Fetcher.Kafka.Brokers, conf.Fetcher.Kafka.Topic, conf.Fetcher.Kafka.Offset)
-		if err != nil {
-			panic(err)
-		}
-		handle(defaultMux, fetcher.(*dispatcher.KafkaSinglePartitionFetcher))
-
-	default:
-		panic(errors.New("unknown fetcher type"))
-	}
-
-	var analyzer dispatcher.Analyzer
-
-	switch conf.Analyzer.Name {
-	default:
-		analyzer = dispatcher.NewBaseAnalyzer()
-	}
-
-	for _, f := range conf.Analyzer.Handler {
-		analyzer.Use(analyzeFunc[f])
-	}
-	fetcher.WithAnalyzer(analyzer)
 
 	wheel, err := dispatcher.NewTimeWheel(jobConf)
 	if err != nil {
 		dispatcher.Logger.Error("bad time wheel", zap.Error(err))
-		os.Exit(1)
+		panic(err)
 	}
-	job.WithTimeWheel(wheel).WithFetcher(fetcher).UseDefaultHavok()
+	job.WithTimeWheel(wheel).WithFetcher(multi).UseDefaultHavok()
 
 	handle(defaultMux, job)
 	handle(defaultMux, dispatcher.DefaultHavok)

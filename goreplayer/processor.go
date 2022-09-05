@@ -1,172 +1,152 @@
 package replayer
 
 import (
+	"bytes"
 	"context"
-	"io/ioutil"
+	"github.com/wosai/havok/internal/option"
+	"github.com/wosai/havok/pkg"
+	"go.uber.org/zap"
+	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"time"
+)
 
-	"github.com/wosai/havok/processor"
+var (
+	HavokUserAgent     = "github.com/wosai/havok"
+	DefaultHttpHandler pkg.Handler
 )
 
 type (
-	Handler interface {
-		Handle(ctx context.Context, request *Payload, response ResponseReader) error
+	HandlerFunc func(ctx context.Context, request *pkg.Payload, response pkg.ResponseReader) error
+
+	httpHandler struct {
+		client *http.Client
 	}
 
-	Middleware func(next Handler) Handler
-
-	Payload struct {
-		Method string
-		URL    url.URL
-		Header map[string][]string
-		Body   []byte
+	httpResponseReader struct {
+		method string
+		url    *url.URL
+		header http.Header
+		body   []byte
+		status int
 	}
 
-	ResponseReader interface {
-		Method() string
-		URL() *url.URL
-		Header() http.Header
-		Read([]byte) (int, error)
-	}
-
-	HTTPAPI   string
-	FlowScope string
-
-	processConfigBlock struct {
-		Type   string          `json:"type,omitempty"`
-		Header processor.Units `json:"header,omitempty"`
-		URL    processor.Units `json:"url,omitempty"`
-		Params processor.Units `json:"params,omitempty"`
-		Body   processor.Units `json:"body,omitempty"`
-		Extra  processor.Units `json:"extra,omitempty"`
-	}
-
-	processorBlock struct {
-		header processor.Processor
-		url    processor.Processor
-		params processor.Processor
-		body   processor.Processor
-		extra  processor.Processor
-	}
-
-	ProcessConfig map[HTTPAPI]*processConfigFlow
-
-	processConfigFlow struct {
-		Request  *processConfigBlock `json:"request,omitempty"`
-		Response *processConfigBlock `json:"response,omitempty"`
-	}
-
-	processorFlow struct {
-		request  *processorBlock
-		response *processorBlock
-	}
-
-	ProcessorHub struct {
-		config ProcessConfig
-		ps     map[HTTPAPI]*processorFlow
+	ResponseWriter interface {
+		With(response *http.Response) error
 	}
 )
 
-func NewProcessorConfigFromFile(fp string) (ProcessConfig, error) {
-	data, err := ioutil.ReadFile(fp)
+func BuildHttpHandler(opt *option.HttpClientOption) pkg.Handler {
+	h := &httpHandler{
+		client: buildHttpClient(opt),
+	}
+
+	DefaultHttpHandler = h
+	return DefaultHttpHandler
+}
+
+func (handler *httpHandler) Handle(ctx context.Context, request *pkg.Payload, response pkg.ResponseReader) error {
+	// doRequest
+	req, err := http.NewRequest(request.Method, request.URL.String(), bytes.NewBuffer(request.Body))
 	if err != nil {
-		return nil, err
+		Logger.Error("failed to new request", zap.Error(err))
+		return err
 	}
-	var conf ProcessConfig
-	err = json.Unmarshal(data, &conf)
+
+	req.Header = request.Header
+	if req.Header == nil {
+		req.Header = http.Header{}
+	}
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Add("User-Agent", HavokUserAgent)
+	}
+
+	res, err := handler.client.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return conf, nil
+	rw, ok := response.(ResponseWriter)
+	if ok {
+		err := rw.With(res)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (pc ProcessConfig) Build() *ProcessorHub {
-	ph := &ProcessorHub{
-		config: pc,
-		ps:     make(map[HTTPAPI]*processorFlow)}
-
-	for api, pf := range pc {
-		pb := new(processorFlow)
-
-		b := pf.Request.build()
-		if b != nil {
-			pb.request = b
-		}
-
-		b = pf.Response.build()
-		if b != nil {
-			pb.response = b
-		}
-
-		if pb != nil {
-			ph.ps[api] = pb
-		}
-	}
-
-	return ph
+func (r *httpResponseReader) Method() string {
+	return r.method
 }
 
-func (pb *processConfigBlock) build() *processorBlock {
-	if pb == nil {
-		return nil
-	}
-
-	b := new(processorBlock)
-
-	if pb.Header != nil {
-		b.header = processor.NewHTTPHeaderProcessor(pb.Header)
-	}
-
-	if pb.URL != nil {
-		b.url = processor.NewURLProcessor(pb.URL)
-	}
-
-	if pb.Params != nil {
-		b.params = processor.NewURLQueryProcessor(pb.Params)
-	}
-
-	if pb.Body != nil {
-		switch pb.Type {
-		case "json":
-			b.body = processor.NewJSONProcessor(pb.Body)
-
-		case "form":
-			b.body = processor.NewFormBodyProcessor(pb.Body)
-
-		case "html":
-			b.body = processor.NewHTMLProcessor(pb.Body)
-
-		}
-	}
-	if pb.Extra != nil {
-		b.extra = processor.NewExtraProcssor(pb.Extra)
-	}
-
-	return b
+func (r *httpResponseReader) URL() *url.URL {
+	return r.url
 }
 
-func (hh ProcessorHub) GetProcessor(api HTTPAPI, scope FlowScope) *processorBlock {
-	if hh.config == nil {
-		return nil
-	}
-	var pf *processorFlow
-	var exist bool
+func (r *httpResponseReader) Header() http.Header {
+	return r.header
+}
 
-	pf, exist = hh.ps[api]
-	if !exist {
-		pf, exist = hh.ps["default"]
-		if !exist {
-			return nil
-		}
+func (r *httpResponseReader) Read() ([]byte, error) {
+	return r.body, nil
+}
+
+func (r *httpResponseReader) Status() int {
+	return r.status
+}
+
+func (r *httpResponseReader) With(response *http.Response) error {
+	r.method = response.Request.Method
+	r.url = response.Request.URL
+
+	r.header = response.Header
+	b, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	r.body = b
+	r.status = response.StatusCode
+	return nil
+}
+
+func buildHttpClient(opt *option.HttpClientOption) *http.Client {
+	return &http.Client{
+		Timeout: opt.Timeout,
+		Transport: &http.Transport{
+			Proxy: nil,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			DisableKeepAlives:     !opt.KeepAlive,
+			MaxIdleConns:          opt.MaxIdleConn,
+			MaxIdleConnsPerHost:   opt.MaxIdleConnPerHost,
+			IdleConnTimeout:       opt.IdleConnTimeout,
+			TLSHandshakeTimeout:   opt.TLSHandshakeTimeout,
+			ExpectContinueTimeout: opt.ExpectContinueTimeout,
+		},
+	}
+}
+
+// chain builds a Handler composed of an inline middleware stack and endpoint
+// handler in the order they are passed.
+func chain(middlewares []pkg.Middleware, endpoint pkg.Handler) pkg.Handler {
+	// Return ahead of time if there aren't any middlewares for the chain
+	if len(middlewares) == 0 {
+		return endpoint
 	}
 
-	switch scope {
-	case "request":
-		return pf.request
-	case "response":
-		return pf.response
-	default:
-		return nil
+	// Wrap the end handler with the middleware chain
+	h := middlewares[len(middlewares)-1](endpoint)
+	for i := len(middlewares) - 2; i >= 0; i-- {
+		h = middlewares[i](h)
 	}
+
+	return h
+}
+
+func (f HandlerFunc) Handle(ctx context.Context, request *pkg.Payload, response pkg.ResponseReader) error { //  用function实现了interface
+	return f(ctx, request, response)
 }

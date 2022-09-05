@@ -1,7 +1,7 @@
 package helper
 
 import (
-	"github.com/wosai/havok/logger"
+	"github.com/wosai/havok/internal/logger"
 	"go.uber.org/zap"
 )
 

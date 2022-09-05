@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/wosai/havok/pkg"
 	pb "github.com/wosai/havok/protobuf"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -137,13 +138,19 @@ func (hv *Havok) KeepAlive() {
 }
 
 // Send 日志方法方法，非定向投递
-func (hv *Havok) Send(log *LogRecordWrapper) {
+func (hv *Havok) Send(log *pkg.LogRecordWrapper) {
 	//hv.concurrency <- struct{}{}
 	//go func() {
 	ins := hv.proxy.Forward(log)
 	if ins != "" {
 		hv.Deliver(ins,
-			&pb.DispatcherEvent{Type: pb.DispatcherEvent_LogRecord, Data: &pb.DispatcherEvent_Log{log.LogRecord}})
+			&pb.DispatcherEvent{Type: pb.DispatcherEvent_LogRecord,
+				Data: &pb.DispatcherEvent_Log{Log: &pb.LogRecord{
+					Url:    log.Url,
+					Method: log.Method,
+					Header: log.Header,
+					Body:   log.Body,
+				}}})
 	} else {
 		Logger.Warn("no inspector is subscribed, current LogRecord would be dropped")
 	}
@@ -236,7 +243,7 @@ func NewReplayerProxy(ins ...string) *ReplayerProxy {
 }
 
 // Forward 根据hash方法选取被投递的Inspector
-func (ip *ReplayerProxy) Forward(log *LogRecordWrapper) string {
+func (ip *ReplayerProxy) Forward(log *pkg.LogRecordWrapper) string {
 	if ip.hash == nil {
 		ip.mu.Lock()
 		ip.hash = defaultRoundTrip.hash

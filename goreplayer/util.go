@@ -1,10 +1,14 @@
 package replayer
 
-import "github.com/wosai/havok/processor"
+import (
+	"github.com/google/uuid"
+	"strings"
+)
 
 func generateReplayerId() string {
 	prefix := "replayer-"
-	return prefix + string(processor.RandStringBytesMaskImprSrc(10))
+	id := strings.Join(strings.Split(uuid.NewString(), "-")[:2], "-")
+	return prefix + id
 }
 
 func removeDuplicateElement(targets []string) []string {

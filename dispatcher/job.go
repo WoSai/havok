@@ -3,6 +3,7 @@ package dispatcher
 import (
 	"encoding/json"
 	"errors"
+	"github.com/wosai/havok/pkg"
 	"net/http"
 	"sync/atomic"
 
@@ -20,7 +21,7 @@ type (
 	// Job 任务对象
 	Job struct {
 		Configuration   *pb.JobConfiguration
-		fetcher         Fetcher
+		fetcher         pkg.Fetcher
 		timeWheel       *TimeWheel
 		Havok           *Havok // 不作为子任务，因此不允许子任务直接操作havok
 		status          TaskStatus
@@ -190,9 +191,7 @@ func (job *Job) Start() error {
 
 	job.timeWheel.WithHavok(job.Havok)
 	go job.timeWheel.Start()
-	job.fetcher.TimeRange(ParseMSec(job.Configuration.Begin), ParseMSec(job.Configuration.End))
-	job.fetcher.SetOutput(job.timeWheel.Recv())
-	go job.fetcher.Start()
+	job.fetcher.Read(job.timeWheel.Recv())
 	go job.featureShake()
 	go job.featureStrike()
 	return nil
@@ -216,7 +215,7 @@ func (job *Job) Notify(from SubTask, status TaskStatus) {
 	switch status {
 	case StatusStopped:
 		switch from.(type) {
-		case Fetcher:
+		case pkg.Fetcher:
 			Logger.Info("fetcher has be stopped")
 			atomic.StoreInt32(&job.fetcherStatus, StatusStopped)
 		case *TimeWheel:
@@ -227,7 +226,7 @@ func (job *Job) Notify(from SubTask, status TaskStatus) {
 		}
 	case StatusFinished:
 		switch from.(type) {
-		case Fetcher:
+		case pkg.Fetcher:
 			Logger.Info("fetcher has be finished")
 			atomic.StoreInt32(&job.fetcherStatus, StatusFinished)
 		case *TimeWheel:
@@ -238,7 +237,7 @@ func (job *Job) Notify(from SubTask, status TaskStatus) {
 		}
 	case StatusRunning:
 		switch from.(type) {
-		case Fetcher:
+		case pkg.Fetcher:
 			atomic.StoreInt32(&job.fetcherStatus, StatusRunning)
 		case *TimeWheel:
 			atomic.StoreInt32(&job.timeWheelStatus, StatusRunning)
@@ -256,9 +255,8 @@ func (job *Job) Status() TaskStatus {
 }
 
 // WithFetcher 设置任务使用Fetcher
-func (job *Job) WithFetcher(f Fetcher) *Job {
+func (job *Job) WithFetcher(f pkg.Fetcher) *Job {
 	job.fetcher = f
-	job.fetcher.Parent(job)
 	return job
 }
 

@@ -1,11 +1,11 @@
 package replayer
 
 import (
+	"github.com/wosai/havok/internal/logger"
 	"math/rand"
 	"time"
 
 	"github.com/json-iterator/go"
-	"github.com/wosai/havok/logger"
 	"go.uber.org/zap"
 )
 

@@ -1,0 +1,16 @@
+description: havok
+env: test
+logger:
+  level: debug
+
+plugin:
+  path: .
+
+httpclient:
+  keepalive: true
+  timeout: 6000000000
+  maxidleconn: 2000
+  maxidleconnperhost: 1000
+  idleconntimeout: 1000000000
+  tlshandshaketimeout: 500000000
+  expectcontinuetimeout: 200000000

@@ -1,7 +1,9 @@
 package option
 
 import (
+	"github.com/wosai/havok/pkg"
 	"strings"
+	"time"
 )
 
 type (
@@ -26,25 +28,36 @@ type (
 		}
 	}
 
+	HttpClientOption struct {
+		KeepAlive             bool          `default:"true"`
+		Timeout               time.Duration `default:"60s"`
+		MaxIdleConn           int           `default:"2000"`
+		MaxIdleConnPerHost    int           `default:"1000"`
+		IdleConnTimeout       time.Duration `default:"10s"`
+		TLSHandshakeTimeout   time.Duration `default:"5s"`
+		ExpectContinueTimeout time.Duration `default:"1s"`
+	}
+
 	PluginOption struct {
-		Path        string
-		Decoders    map[string]interface{}
-		Fetchers    map[string]interface{}
-		Middlewares map[string]interface{}
+		Path string
+		Conf *pkg.PluginOption
+	}
+
+	JobOption struct {
+		Rate  float32
+		Speed float32
+		Begin int64
+		End   int64
 	}
 
 	// Option 配置入口
 	Option struct {
-		Env            Env
-		StaticDir      string
-		LoginDirectUri string `required:"true"`
-		Description    string
-		SelfDomain     string `required:"true"`
-		Logger         LoggerOption
-		RobotUser      []string
-		Event          EventOption
-		AllowOrigins   []string
-		Plugin         PluginOption
+		Env         Env
+		Description string
+		Logger      *LoggerOption
+		Plugin      *PluginOption
+		HttpClient  *HttpClientOption
+		Job         *JobOption
 	}
 )
 

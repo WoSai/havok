@@ -1,7 +1,6 @@
 package apollo
 
 import (
-	"github.com/wosai/havok/logger"
 	"go.uber.org/zap"
 	"strings"
 
@@ -26,6 +25,7 @@ type options struct {
 	namespace      string
 	isBackupConfig bool
 	backupPath     string
+	logger         *zap.Logger
 }
 
 // WithAppID with apollo config app id
@@ -84,6 +84,13 @@ func WithBackupPath(backupPath string) Option {
 	}
 }
 
+// WithBackupPath with apollo config backupPath
+func WithLogger(log *zap.Logger) Option {
+	return func(o *options) {
+		o.logger = log
+	}
+}
+
 func NewSource(opts ...Option) config.Source {
 	op := options{}
 	for _, o := range opts {
@@ -122,7 +129,7 @@ func (e *apollo) load() []*config.KeyValue {
 	for _, ns := range namespaces {
 		value, err := e.client.GetConfigCache(ns).Get("content")
 		if err != nil {
-			logger.Logger.Warn("apollo get config failed", zap.Error(err))
+			e.opt.logger.Warn("apollo get config failed", zap.Error(err))
 		}
 		// serialize the namespace content KeyValue into bytes.
 		kv = append(kv, &config.KeyValue{

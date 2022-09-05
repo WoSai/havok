@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"errors"
+	"github.com/wosai/havok/pkg"
 	"sync/atomic"
 	"time"
 
@@ -17,12 +18,12 @@ var (
 type (
 	// timeWheel 用于控制LogRecord发送速率
 	TimeWheel struct {
-		delta    time.Duration          // 日志时间与当前时间的偏差
-		nextStop time.Time              // 下一次等待时间（现实时间）
-		offset   time.Duration          // 在增速回放时，原始日志时间戳的修正量
-		interval time.Duration          // 每次循环间隔，如1s
-		inbox    chan *LogRecordWrapper // 接收LogRecordWrapper，输入方为Fetcher
-		status   TaskStatus             // TimeWheel工作状态
+		delta    time.Duration              // 日志时间与当前时间的偏差
+		nextStop time.Time                  // 下一次等待时间（现实时间）
+		offset   time.Duration              // 在增速回放时，原始日志时间戳的修正量
+		interval time.Duration              // 每次循环间隔，如1s
+		inbox    chan *pkg.LogRecordWrapper // 接收LogRecordWrapper，输入方为Fetcher
+		status   TaskStatus                 // TimeWheel工作状态
 		begin    time.Time
 		end      time.Time
 		speed    float32
@@ -67,7 +68,7 @@ func NewTimeWheel(job *pb.JobConfiguration) (*TimeWheel, error) {
 	}
 	return &TimeWheel{
 		interval: defaultTimeWheelInterval,
-		inbox:    make(chan *LogRecordWrapper, defaultInboxBuffer),
+		inbox:    make(chan *pkg.LogRecordWrapper, defaultInboxBuffer),
 		begin:    ParseMSec(job.Begin),
 		end:      ParseMSec(job.End),
 		speed:    job.Speed,
@@ -75,7 +76,7 @@ func NewTimeWheel(job *pb.JobConfiguration) (*TimeWheel, error) {
 }
 
 // Recv 接收待发送的日志，交由TimeWheel对象来按时间顺序投递
-func (tw *TimeWheel) Recv() chan<- *LogRecordWrapper {
+func (tw *TimeWheel) Recv() chan<- *pkg.LogRecordWrapper {
 	return tw.inbox
 }
 

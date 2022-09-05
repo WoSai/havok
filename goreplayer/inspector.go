@@ -21,12 +21,7 @@ type (
 
 var (
 	defaultRate       float32 = 1.0
-	DefaultReplayer   *Replayer
-	DefaultReplayerId string
-)
-
-const (
-	DefaultReplayerConcurrency = 3000
+	DefaultReplayerId string  = generateReplayerId()
 )
 
 func NewInspector(host string) (*Inspector, error) {
@@ -98,14 +93,4 @@ func (ins *Inspector) Run() error {
 			submitterPipeline <- msg.GetStats()
 		}
 	}
-}
-
-func RefreshDefaultReplayer(keepAlive bool) *Replayer {
-	if DefaultReplayerId == "" {
-		DefaultReplayerId = generateReplayerId()
-	}
-	if DefaultReplayer == nil {
-		return NewReplayer(defaultRate, &ProcessorHub{}, DefaultReplayerConcurrency, keepAlive)
-	}
-	return DefaultReplayer
 }
