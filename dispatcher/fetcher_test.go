@@ -2,7 +2,6 @@ package dispatcher
 
 import (
 	"context"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/wosai/havok/pkg"
 	"math/rand"
@@ -11,21 +10,21 @@ import (
 )
 
 type (
-	fileFetcher struct {
+	testFetcher struct {
 		ch     chan<- *pkg.LogRecordWrapper
 		cancel context.CancelFunc
 	}
 )
 
-func newFileFetcher() *fileFetcher {
-	return &fileFetcher{}
+func newFileFetcher() *testFetcher {
+	return &testFetcher{}
 }
 
-func (f *fileFetcher) Read(ch chan<- *pkg.LogRecordWrapper) {
+func (f *testFetcher) Read(ch chan<- *pkg.LogRecordWrapper) {
 	f.start(ch)
 }
 
-func (f *fileFetcher) start(ch chan<- *pkg.LogRecordWrapper) {
+func (f *testFetcher) start(ch chan<- *pkg.LogRecordWrapper) {
 	f.ch = ch
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -45,7 +44,7 @@ func (f *fileFetcher) start(ch chan<- *pkg.LogRecordWrapper) {
 	}()
 }
 
-func (f *fileFetcher) close() {
+func (f *testFetcher) close() {
 	f.cancel()
 	time.Sleep(time.Millisecond * 100)
 	close(f.ch)
@@ -87,7 +86,6 @@ func TestNewMultiFetcher_close(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		select {
 		case v := <-ch:
-			fmt.Println(1)
 			assert.NotNil(t, v)
 		}
 	}
@@ -97,7 +95,6 @@ func TestNewMultiFetcher_close(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		select {
 		case v := <-ch:
-			fmt.Println(2)
 			assert.NotNil(t, v)
 		}
 	}
@@ -105,7 +102,6 @@ func TestNewMultiFetcher_close(t *testing.T) {
 	f2.close()
 
 	for v := range ch {
-		fmt.Println(3)
 		assert.NotNil(t, v)
 	}
 }

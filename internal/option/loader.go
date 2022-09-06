@@ -155,24 +155,6 @@ func LoadConfig(path ...string) *Option {
 	for _, p := range path {
 		AddConfigPath(p)
 	}
-
-	//p, err := os.Getwd()
-	//if err != nil {
-	//	panic("error path" + err.Error())
-	//}
-	//basePath := strings.SplitAfter(p, "havok")[0]
-	//AddConfigPath(path.Join(basePath, "/conf"))
 	Conf = mustLoad()
 	return Conf
 }
-
-//func init() {
-//	AddConfigPath("./conf")
-//	p, err := os.Getwd()
-//	if err != nil {
-//		panic("error path" + err.Error())
-//	}
-//	basePath := strings.SplitAfter(p, "stress-platform")[0]
-//	AddConfigPath(path.Join(basePath, "/conf"))
-//	Conf = MustLoadConfig()
-//}

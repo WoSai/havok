@@ -33,7 +33,7 @@ type (
 		manager *manager
 	}
 
-	// 内部加载器
+	// 内部插件加载器
 	innerLoader struct {
 		config  *option.PluginOption
 		plugin  []innerPlugin
