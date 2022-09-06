@@ -31,10 +31,12 @@ type (
 	HttpClientOption struct {
 		KeepAlive             bool          `default:"true"`
 		Timeout               time.Duration `default:"60s"`
+		DialTimeout           time.Duration `default:"30s"`
+		KeepAliveTimeout      time.Duration `default:"30s"`
 		MaxIdleConn           int           `default:"2000"`
 		MaxIdleConnPerHost    int           `default:"1000"`
-		IdleConnTimeout       time.Duration `default:"10s"`
-		TLSHandshakeTimeout   time.Duration `default:"5s"`
+		IdleConnTimeout       time.Duration `default:"30s"`
+		TLSHandshakeTimeout   time.Duration `default:"10s"`
 		ExpectContinueTimeout time.Duration `default:"1s"`
 	}
 

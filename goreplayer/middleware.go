@@ -25,6 +25,10 @@ func (t *timer) Start() {
 }
 
 func (t *timer) End() {
+	if t.start.IsZero() {
+		t.duration = time.Duration(0)
+		return
+	}
 	t.duration = time.Since(t.start)
 }
 

@@ -16,7 +16,7 @@ type (
 	}
 )
 
-func newFileFetcher() *testFetcher {
+func newTestFetcher() *testFetcher {
 	return &testFetcher{}
 }
 
@@ -51,7 +51,7 @@ func (f *testFetcher) close() {
 }
 
 func TestNewMultiFetcher_multi(t *testing.T) {
-	multi := NewMultiFetcher(newFileFetcher(), newFileFetcher(), newFileFetcher())
+	multi := NewMultiFetcher(newTestFetcher(), newTestFetcher(), newTestFetcher())
 	ch := make(chan *pkg.LogRecordWrapper)
 	multi.Read(ch)
 
@@ -64,7 +64,7 @@ func TestNewMultiFetcher_multi(t *testing.T) {
 }
 
 func TestNewMultiFetcher_single(t *testing.T) {
-	multi := NewMultiFetcher(newFileFetcher())
+	multi := NewMultiFetcher(newTestFetcher())
 	ch := make(chan *pkg.LogRecordWrapper, 5)
 	multi.Read(ch)
 
@@ -77,8 +77,8 @@ func TestNewMultiFetcher_single(t *testing.T) {
 }
 
 func TestNewMultiFetcher_close(t *testing.T) {
-	f1 := newFileFetcher()
-	f2 := newFileFetcher()
+	f1 := newTestFetcher()
+	f2 := newTestFetcher()
 	multi := NewMultiFetcher(f1, f2)
 	ch := make(chan *pkg.LogRecordWrapper)
 	multi.Read(ch)

@@ -14,9 +14,11 @@ plugin:
 
 httpclient:
   keepalive: true
-  timeout: 6000000000
+  timeout: 60000000000  # 60s
+  dialtimeout: 30000000000  # 30s
+  keepalivetimeout: 30000000000  # 30s
   maxidleconn: 2000
   maxidleconnperhost: 1000
-  idleconntimeout: 1000000000
-  tlshandshaketimeout: 500000000
-  expectcontinuetimeout: 200000000
+  idleconntimeout: 30000000000  # 30s
+  tlshandshaketimeout: 10000000000  # 10s
+  expectcontinuetimeout: 1000000000  # 1s

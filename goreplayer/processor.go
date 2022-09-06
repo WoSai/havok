@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"time"
 )
 
 var (
@@ -111,25 +110,6 @@ func (r *httpResponseReader) With(response *http.Response) error {
 	return nil
 }
 
-func buildHttpClient(opt *option.HttpClientOption) *http.Client {
-	return &http.Client{
-		Timeout: opt.Timeout,
-		Transport: &http.Transport{
-			Proxy: nil,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			DisableKeepAlives:     !opt.KeepAlive,
-			MaxIdleConns:          opt.MaxIdleConn,
-			MaxIdleConnsPerHost:   opt.MaxIdleConnPerHost,
-			IdleConnTimeout:       opt.IdleConnTimeout,
-			TLSHandshakeTimeout:   opt.TLSHandshakeTimeout,
-			ExpectContinueTimeout: opt.ExpectContinueTimeout,
-		},
-	}
-}
-
 // chain builds a Handler composed of an inline middleware stack and endpoint
 // handler in the order they are passed.
 func chain(middlewares []pkg.Middleware, endpoint pkg.Handler) pkg.Handler {
@@ -149,4 +129,23 @@ func chain(middlewares []pkg.Middleware, endpoint pkg.Handler) pkg.Handler {
 
 func (f HandlerFunc) Handle(ctx context.Context, request *pkg.Payload, response pkg.ResponseReader) error { //  用function实现了interface
 	return f(ctx, request, response)
+}
+
+func buildHttpClient(opt *option.HttpClientOption) *http.Client {
+	return &http.Client{
+		Timeout: opt.Timeout,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   opt.Timeout,
+				KeepAlive: opt.KeepAliveTimeout,
+			}).DialContext,
+			DisableKeepAlives:     !opt.KeepAlive,
+			MaxIdleConns:          opt.MaxIdleConn,
+			MaxIdleConnsPerHost:   opt.MaxIdleConnPerHost,
+			IdleConnTimeout:       opt.IdleConnTimeout,
+			TLSHandshakeTimeout:   opt.TLSHandshakeTimeout,
+			ExpectContinueTimeout: opt.ExpectContinueTimeout,
+		},
+	}
 }
