@@ -61,8 +61,8 @@ type (
 
 type (
 	PluginOption struct {
-		Decoders    map[string]interface{}
-		Fetchers    map[string]interface{}
-		Middlewares map[string]interface{}
+		Decoders    map[string]any
+		Fetchers    map[string]any
+		Middlewares map[string]any
 	}
 )

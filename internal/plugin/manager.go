@@ -20,7 +20,11 @@ type (
 )
 
 func newPluginManager() *manager {
-	return &manager{}
+	return &manager{
+		middlewares: []pkg.Middleware{},
+		fetchers:    []pkg.Fetcher{},
+		decoders:    map[string]pkg.Decoder{},
+	}
 }
 
 func (pm *manager) RegisterMiddleware(m pkg.Middleware) {

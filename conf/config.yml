@@ -5,6 +5,12 @@ logger:
 
 plugin:
   path: .
+  conf:
+    fetchers:
+      FileFetcher:
+        file: ./local.log
+        decoder:
+          - Decoder
 
 httpclient:
   keepalive: true

@@ -6,6 +6,7 @@ import (
 	"github.com/jacexh/gopkg/config"
 	"github.com/jacexh/gopkg/config/env"
 	"github.com/jacexh/gopkg/config/file"
+	"github.com/wosai/havok/internal/logger"
 	"github.com/wosai/havok/internal/option/apollo"
 	"os"
 	"path/filepath"
@@ -117,6 +118,7 @@ func findApolloConfigs() (opts []apollo.Option) {
 	opts = append(opts, apollo.WithCluster(configCluster))
 	opts = append(opts, apollo.WithNamespace(configNamespace))
 	opts = append(opts, apollo.WithEnableBackup())
+	opts = append(opts, apollo.WithLogger(logger.Logger))
 	return opts
 }
 

@@ -75,12 +75,14 @@ start:
 			goto start
 		}
 
-		if len(mf.sortLogs) > 1 && c.OccurAt.After(mf.sortLogs[1].OccurAt) {
-			mf.sortLogs[0] = &indexLog{
-				LogRecordWrapper: c,
-				idx:              minIdx,
+		if len(mf.sortLogs) > 1 {
+			if c.OccurAt.After(mf.sortLogs[1].OccurAt) {
+				mf.sortLogs[0] = &indexLog{
+					LogRecordWrapper: c,
+					idx:              minIdx,
+				}
+				goto start
 			}
-			goto start
 		}
 		mf.wChannel <- c
 	}

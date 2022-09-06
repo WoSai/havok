@@ -11,7 +11,9 @@ import (
 	"strings"
 )
 
-var DefaultLoader Loader = (*loader)(nil)
+var DefaultLoader Loader = (*multiLoader)(nil)
+var DefaultManager *manager = newPluginManager()
+var DefaultInnerPlugin = newInnerLoader()
 
 type (
 	Loader interface {
@@ -19,20 +21,58 @@ type (
 		ManageRepo() ManageRepo
 	}
 
+	multiLoader struct {
+		load       []Loader
+		manageRepo []ManageRepo
+	}
+
+	// go_plugin加载器
 	loader struct {
 		config  *option.PluginOption
 		path    string
 		manager *manager
 	}
+
+	// 内部加载器
+	innerLoader struct {
+		config  *option.PluginOption
+		plugin  []innerPlugin
+		manager *manager
+	}
+
+	innerPlugin interface {
+		InitPlugin(opt *option.PluginOption) error
+		RegisterPlugin(m pkg.Manager) error
+	}
 )
 
 func BuildLoader(opt *option.PluginOption) Loader {
-	l := &loader{
-		config: opt,
-		path:   opt.Path,
-	}
+	DefaultInnerPlugin.config = opt
+	l := &multiLoader{load: []Loader{newLoader(opt), DefaultInnerPlugin}}
 	DefaultLoader = l
 	return l
+}
+
+func (l *multiLoader) Load() error {
+	for _, load := range l.load {
+		err := load.Load()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (l *multiLoader) ManageRepo() ManageRepo {
+	return DefaultManager
+}
+
+func newLoader(opt *option.PluginOption) *loader {
+	return &loader{
+		config:  opt,
+		path:    opt.Path,
+		manager: DefaultManager,
+	}
 }
 
 func (l *loader) ManageRepo() ManageRepo {
@@ -44,8 +84,6 @@ func (l *loader) Load() error {
 	if err != nil {
 		return err
 	}
-
-	l.manager = newPluginManager()
 
 	for _, entry := range c {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".so") {
@@ -85,4 +123,33 @@ func (l *loader) initPlugin(p *plugin.Plugin, m pkg.Manager) error {
 	registerFunc := rFunc.(func(m pkg.Manager) error)
 	err = registerFunc(m)
 	return err
+}
+
+func newInnerLoader() *innerLoader {
+	return &innerLoader{
+		plugin:  []innerPlugin{},
+		manager: DefaultManager,
+	}
+}
+
+func (in *innerLoader) Add(p ...innerPlugin) {
+	in.plugin = append(in.plugin, p...)
+}
+
+func (in *innerLoader) Load() error {
+	for _, p := range in.plugin {
+		err := p.InitPlugin(in.config)
+		if err != nil {
+			return err
+		}
+		err = p.RegisterPlugin(in.manager)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (in *innerLoader) ManageRepo() ManageRepo {
+	return in.manager
 }

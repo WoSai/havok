@@ -14,6 +14,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/wosai/havok/apollo"
 	"github.com/wosai/havok/dispatcher/helper"
+	_ "github.com/wosai/havok/internal/modules"
 	pb "github.com/wosai/havok/protobuf"
 	"go.uber.org/zap"
 )
@@ -130,7 +131,7 @@ func main() {
 	defaultReporter := startReporter(conf, defaultReplayerManager)
 
 	opt := option.LoadConfig()
-	dispatcher.Logger.Info("configuration", zap.Any("conf", conf))
+	dispatcher.Logger.Info("configuration", zap.Any("conf", opt))
 
 	plugin.BuildLoader(opt.Plugin)
 

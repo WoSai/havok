@@ -2,7 +2,6 @@ package replayer
 
 import (
 	"context"
-	"fmt"
 	"github.com/wosai/havok/pkg"
 	"math/rand"
 	"net/http"
@@ -46,8 +45,6 @@ func BuildReplayer(c int, httpHandler pkg.Handler, ms []pkg.Middleware) *replaye
 func (rep *replayer) Run() {
 	var ctx = context.Background()
 	for logRecord := range replayerPipeline {
-		fmt.Println("get a log")
-
 		rate := rep.replayRate
 
 		// 模拟锯齿峰请求特性
