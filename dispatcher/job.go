@@ -3,13 +3,12 @@ package dispatcher
 import (
 	"encoding/json"
 	"errors"
-	"net/http"
-	"sync/atomic"
-
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	pb "github.com/wosai/havok/pkg/genproto"
