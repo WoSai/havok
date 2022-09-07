@@ -1,0 +1,19 @@
+plugins:
+- name: file-fetcher
+  type: buildin
+  args:
+    path: "foobar.log"
+    from: "2021-09-10 03:00:00"
+    to: "2021-09-10 04:00:00"
+  extends:
+    decoder: foobar-decoder
+- name: sls-fetcher
+  type: local
+  path: ./sls.so
+- name: sidecar-fetcher
+  type: remote
+  path: https://foobar.com/plugin/sidecar-fetcher.so
+  args:
+    foo: bar
+  extends:
+    decoder: foobar-decoder
