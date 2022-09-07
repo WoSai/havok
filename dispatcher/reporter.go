@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "github.com/wosai/havok/protobuf"
+	pb "github.com/wosai/havok/pkg/genproto"
 	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 )

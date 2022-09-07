@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	pb "github.com/wosai/havok/protobuf"
+	pb "github.com/wosai/havok/pkg/genproto"
 )
 
 var (

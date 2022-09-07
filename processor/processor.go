@@ -1,20 +1,18 @@
 package processor
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
-	"reflect"
-	"strings"
-
-	"errors"
-
-	"github.com/wosai/havok/types"
 	uuid "github.com/satori/go.uuid"
+	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
 )
 

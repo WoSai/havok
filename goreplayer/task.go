@@ -1,10 +1,11 @@
 package replayer
 
 import (
-	pb "github.com/wosai/havok/protobuf"
+	"time"
+
+	pb "github.com/wosai/havok/pkg/genproto"
 	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
-	"time"
 )
 
 type (
