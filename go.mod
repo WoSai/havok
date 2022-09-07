@@ -3,7 +3,7 @@ module github.com/wosai/havok
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/aliyun/aliyun-log-go-sdk v0.1.17
-	github.com/buger/jsonparser v0.0.0-20180808090653-f4dd9f5a6b44
+	github.com/buger/jsonparser v1.1.1
 	github.com/golang/protobuf v1.4.3
 	github.com/influxdata/influxdb v1.6.0
 	github.com/json-iterator/go v1.1.8
@@ -11,8 +11,8 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/segmentio/kafka-go v0.4.8
 	github.com/shima-park/agollo v0.0.0-20181023021221-72d8501933c7
-	github.com/stretchr/testify v1.4.0
-	go.uber.org/zap v1.13.0
+	github.com/stretchr/testify v1.8.0
+	go.uber.org/zap v1.23.0
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	google.golang.org/grpc v1.27.0
 	gopkg.in/olivere/elastic.v5 v5.0.69
@@ -40,17 +40,14 @@ require (
 	github.com/prometheus/client_model v0.1.0 // indirect
 	github.com/prometheus/common v0.7.0 // indirect
 	github.com/prometheus/procfs v0.0.8 // indirect
-	go.uber.org/atomic v1.5.0 // indirect
-	go.uber.org/multierr v1.3.0 // indirect
-	go.uber.org/tools v0.0.0-20190618225709-2cfd321de3ee // indirect
-	golang.org/x/lint v0.0.0-20190930215403-16217165b5de // indirect
+	go.uber.org/atomic v1.7.0 // indirect
+	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68 // indirect
 	golang.org/x/text v0.3.4 // indirect
-	golang.org/x/tools v0.0.0-20200103221440-774c71fcf114 // indirect
 	google.golang.org/genproto v0.0.0-20201119123407-9b1e624d6bc4 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
-	honnef.co/go/tools v0.0.1-2019.2.3 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 go 1.18
