@@ -22,7 +22,6 @@ const (
 
 // LoadPlugins 暴露该方法即可
 func LoadPlugins(opts ...LoadOption) {
-	pluginManager = newManager()
 	for _, opt := range opts {
 		fmt.Println(opt)
 	}

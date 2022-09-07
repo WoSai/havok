@@ -48,6 +48,10 @@ func (m *manager) lookup(name string) any {
 	return v
 }
 
+func Register(plugin any) {
+	pluginManager.register(plugin)
+}
+
 func LookupFetcher(name string) iplugin.Fetcher {
 	if p := pluginManager.lookup(name); p != nil {
 		if f, ok := p.(iplugin.Fetcher); ok {
@@ -64,4 +68,8 @@ func LookupDecoder(name string) iplugin.LogDecoder {
 		}
 	}
 	panic(fmt.Sprintf("decoder named %s does not exists", name))
+}
+
+func init() {
+	pluginManager = newManager()
 }
