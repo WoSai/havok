@@ -1,11 +1,11 @@
 package processor
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"testing"
 
-	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/wosai/havok/types"
 )

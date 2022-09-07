@@ -1,0 +1,8 @@
+{
+    "go.coverMode": "atomic",
+    "protoc": {
+        "options": [
+            "--proto_path=${workspaceRoot}/api/protobuf/",
+        ]
+    },
+}

@@ -12,7 +12,7 @@ import (
 	"github.com/wosai/havok/apollo"
 	"github.com/wosai/havok/dispatcher"
 	"github.com/wosai/havok/dispatcher/helper"
-	pb "github.com/wosai/havok/protobuf"
+	pb "github.com/wosai/havok/pkg/genproto"
 	"go.uber.org/zap"
 )
 

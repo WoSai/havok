@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "github.com/wosai/havok/protobuf"
 	sls "github.com/aliyun/aliyun-log-go-sdk"
 	"github.com/segmentio/kafka-go"
+	pb "github.com/wosai/havok/pkg/genproto"
 	"go.uber.org/zap"
 	"gopkg.in/olivere/elastic.v5"
 )

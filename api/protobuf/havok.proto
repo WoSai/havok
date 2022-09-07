@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package dispatcher;
+package wosai.havok;
+
+option go_package = "github.com/wosai/havok/pkg/genproto";
 
 service Havok {
     rpc Subscribe (ReplayerRegistration) returns (stream DispatcherEvent) {
