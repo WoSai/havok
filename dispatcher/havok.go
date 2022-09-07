@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "github.com/wosai/havok/protobuf"
+	pb "github.com/wosai/havok/pkg/genproto"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"

@@ -9,13 +9,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"reflect"
 	"sync"
 	"time"
 
-	dispatcher "github.com/wosai/havok/protobuf"
+	dispatcher "github.com/wosai/havok/pkg/genproto"
 	"github.com/wosai/havok/types"
 	"go.uber.org/zap"
-	"reflect"
 )
 
 type (

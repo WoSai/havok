@@ -1,7 +1,7 @@
 package replayer
 
 import (
-	pb "github.com/wosai/havok/protobuf"
+	pb "github.com/wosai/havok/pkg/genproto"
 	"github.com/wosai/havok/types"
 )
 
