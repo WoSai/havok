@@ -44,6 +44,6 @@ func (fb *FoobarFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord)
 	return nil
 }
 
-func InitPlugin() Fetcher {
+func InitPlugin() any {
 	return new(FoobarFetcher)
 }

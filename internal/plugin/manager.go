@@ -58,7 +58,7 @@ func LookupFetcher(name string) iplugin.Fetcher {
 			return f
 		}
 	}
-	panic(fmt.Sprintf("fetched named %s does not exists", name))
+	panic(fmt.Sprintf("fetcher named %s does not exists", name))
 }
 
 func LookupDecoder(name string) iplugin.LogDecoder {

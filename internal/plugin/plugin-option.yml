@@ -1,12 +1,12 @@
 plugins:
 - name: file-fetcher
-  type: buildin
+  type: builtin
   args:
     path: "foobar.log"
     from: "2021-09-10 03:00:00"
     to: "2021-09-10 04:00:00"
-  extends:
-    decoder: foobar-decoder
+  needs:
+  - foobar-decoder
 - name: sls-fetcher
   type: local
   path: ./sls.so
@@ -15,5 +15,5 @@ plugins:
   path: https://foobar.com/plugin/sidecar-fetcher.so
   args:
     foo: bar
-  extends:
-    decoder: foobar-decoder
+  needs:
+  - foobar-decoder

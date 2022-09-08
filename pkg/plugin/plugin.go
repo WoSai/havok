@@ -6,7 +6,12 @@ import (
 	pb "github.com/wosai/havok/pkg/genproto"
 )
 
+const MagicString = "InitPlugin"
+
 type (
+	// InitFunc 插件初始化函数
+	InitFunc func() any
+
 	// Fetcher 定义了日志源的抓取对象
 	Fetcher interface {
 		// Name Fetcher名称
