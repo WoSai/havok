@@ -1,4 +1,5 @@
 {
+    "go.testFlags": ["-v", "-race"],
     "go.coverMode": "atomic",
     "protoc": {
         "options": [
