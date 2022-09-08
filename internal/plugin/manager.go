@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 
+	"github.com/wosai/havok/internal/pkg/fetcher"
 	iplugin "github.com/wosai/havok/pkg/plugin"
 )
 
@@ -72,4 +73,5 @@ func LookupDecoder(name string) iplugin.LogDecoder {
 
 func init() {
 	pluginManager = newManager()
+	pluginManager.register(fetcher.NewFileFetcher)
 }
