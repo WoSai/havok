@@ -2,6 +2,8 @@ package dispatcher
 
 import (
 	"errors"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +33,7 @@ type (
 		parent   ParentTask
 		counter  int64
 		qps      int64
+		mu       sync.RWMutex
 	}
 )
 
@@ -88,14 +91,15 @@ func (tw *TimeWheel) Start() error {
 	Logger.Info("start time wheel", zap.String("begin", tw.begin.String()), zap.String("end", tw.end.String()))
 
 	go func() {
-		var last = tw.counter
+		var last = atomic.LoadInt64(&tw.counter)
 		var current int64
 		for {
 			time.Sleep(1 * time.Second)
 			current = atomic.LoadInt64(&tw.counter)
-			tw.qps = current - last
+			qps := current - last
+			atomic.StoreInt64(&tw.qps, qps)
 			last = current
-			Logger.Info("TimeWheel QPS", zap.Int64("timewheel_qps", tw.qps))
+			Logger.Info("TimeWheel QPS", zap.Int64("timewheel_qps", qps))
 		}
 	}()
 
@@ -116,15 +120,21 @@ func (tw *TimeWheel) Start() error {
 		}
 
 		if tw.delta == 0 {
-			tw.delta = time.Now().Sub(log.OccurAt)
+			tw.delta = time.Since(log.OccurAt)
 			Logger.Info("set delta field of time wheel", zap.String("delta", tw.delta.String()), zap.String("occurAt", log.OccurAt.String()))
 			go tw.wheeling()
 		}
 
 		//Logger.Info("received log", zap.String("occurAt", log.OccurAt.String()))
-		for tw.nextStop.Before(log.OccurAt.Add(tw.delta)) {
-			time.Sleep(time.Millisecond)
-			//tw.next()
+		for {
+			tw.mu.RLock()
+			next := tw.nextStop
+			tw.mu.RUnlock()
+			if next.Before(log.OccurAt.Add(tw.delta)) {
+				runtime.Gosched()
+				continue
+			}
+			break
 		}
 
 		atomic.AddInt64(&tw.counter, 1)
@@ -151,6 +161,9 @@ func (tw *TimeWheel) wheeling() {
 }
 
 func (tw *TimeWheel) next() {
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+
 	tw.offset += time.Duration(float64(tw.interval) * float64(tw.speed-1.0))
 	tw.nextStop = time.Now().Add(tw.offset + time.Duration(float32(tw.interval)*tw.speed))
 }

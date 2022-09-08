@@ -1,8 +1,10 @@
 {
+    "go.testFlags": ["-v", "-race"],
     "go.coverMode": "atomic",
     "protoc": {
         "options": [
             "--proto_path=${workspaceRoot}/api/protobuf/",
+            "--proto_path=${workspaceRoot}/api/protobuf/google/protobuf/",
         ]
     },
 }
