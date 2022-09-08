@@ -1,0 +1,49 @@
+package plugin
+
+import (
+	"context"
+
+	pb "github.com/wosai/havok/pkg/genproto"
+)
+
+type (
+	FoobarFetcher struct {
+		path    string
+		decoder LogDecoder
+	}
+
+	Option struct {
+		FilePath string `json:"file_path" yaml:"file_path" toml:"file_path"`
+	}
+)
+
+var _ Fetcher = (*FoobarFetcher)(nil)
+
+func (fb *FoobarFetcher) Name() string {
+	return "foobar-fetcher"
+}
+
+func (fb *FoobarFetcher) Apply(opt any) {
+	o, ok := opt.(Option)
+	if !ok {
+		panic("bad type to apply")
+	}
+	fb.path = o.FilePath
+}
+
+func (fb *FoobarFetcher) WithDecoder(d LogDecoder) {
+	fb.decoder = d
+}
+
+func (fb *FoobarFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	return nil
+}
+
+func InitPlugin() any {
+	return new(FoobarFetcher)
+}

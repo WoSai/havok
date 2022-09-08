@@ -25,8 +25,8 @@ pb:
 	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
 	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
-.PHONY: gen
-gen: api
+.PHONY: api
+api: pb
 	@protoc --proto_path=api/protobuf/ api/protobuf/havok.proto \
 	--go_out=pkg/genproto \
 	--go_opt=paths=source_relative \

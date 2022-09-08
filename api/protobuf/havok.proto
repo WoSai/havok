@@ -4,6 +4,8 @@ package wosai.havok;
 
 option go_package = "github.com/wosai/havok/pkg/genproto";
 
+import "google/protobuf/timestamp.proto";
+
 service Havok {
     rpc Subscribe (ReplayerRegistration) returns (stream DispatcherEvent) {
     }
@@ -43,6 +45,7 @@ message LogRecord {
     string url = 1; // eg. http://api.github.com/orgs/Wosai/actions/permissions
     string method = 2; // GET/POST ...
     map<string, string> header = 3; // 请求头
+    google.protobuf.Timestamp occur_at = 4;  // 日志发生日期
     bytes body = 8; // 完整透传body内容
 }
 
