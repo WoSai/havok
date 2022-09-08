@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"os"
+	"time"
 
 	pb "github.com/wosai/havok/pkg/genproto"
 	"github.com/wosai/havok/pkg/plugin"
@@ -13,6 +14,8 @@ type (
 	FileFetcher struct {
 		filePath string
 		decoder  plugin.LogDecoder
+		begin    time.Time
+		end      time.Time
 	}
 )
 
@@ -51,7 +54,12 @@ func (ff *FileFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) e
 		}
 
 		if log, err := ff.decoder.Decode(scanner.Bytes()); err == nil {
-			// TODO: 补充其他
+			if log.OccurAt.AsTime().Before(ff.begin) {
+				continue
+			}
+			if log.OccurAt.AsTime().After(ff.end) {
+				return nil
+			}
 			output <- log
 		}
 	}
