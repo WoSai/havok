@@ -40,6 +40,8 @@ func (ff *FileFetcher) WithDecoder(decoder iplugin.LogDecoder) {
 }
 
 func (ff *FileFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
+	defer close(output)
+
 	file, err := os.Open(ff.filePath)
 	if err != nil {
 		return err
