@@ -6,22 +6,23 @@ import (
 	"os"
 	"time"
 
+	"github.com/wosai/havok/internal/plugin"
 	pb "github.com/wosai/havok/pkg/genproto"
-	"github.com/wosai/havok/pkg/plugin"
+	iplugin "github.com/wosai/havok/pkg/plugin"
 )
 
 type (
 	FileFetcher struct {
 		filePath string
-		decoder  plugin.LogDecoder
+		decoder  iplugin.LogDecoder
 		begin    time.Time
 		end      time.Time
 	}
 )
 
-var _ plugin.Fetcher = (*FileFetcher)(nil)
+var _ iplugin.Fetcher = (*FileFetcher)(nil)
 
-func NewFileFetcher() plugin.Fetcher {
+func NewFileFetcher() iplugin.Fetcher {
 	return &FileFetcher{}
 }
 
@@ -34,7 +35,7 @@ func (ff *FileFetcher) Apply(opt any) {
 
 }
 
-func (ff *FileFetcher) WithDecoder(decoder plugin.LogDecoder) {
+func (ff *FileFetcher) WithDecoder(decoder iplugin.LogDecoder) {
 	ff.decoder = decoder
 }
 
@@ -64,4 +65,8 @@ func (ff *FileFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) e
 		}
 	}
 	return scanner.Err()
+}
+
+func init() {
+	plugin.Register(NewFileFetcher())
 }
