@@ -34,6 +34,7 @@ func (m *manager) register(plugin any) {
 			panic("duplicated name in manager: " + n.Name())
 		} else {
 			m.plugins[n.Name()] = plugin
+			return
 		}
 	}
 
