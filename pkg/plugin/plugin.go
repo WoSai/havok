@@ -9,13 +9,18 @@ import (
 const MagicString = "InitPlugin"
 
 type (
+	// Named a named plugin
+	Named interface {
+		// Name  return plugin name
+		Name() string
+	}
+
 	// InitFunc 插件初始化函数
 	InitFunc func() any
 
 	// Fetcher 定义了日志源的抓取对象
 	Fetcher interface {
-		// Name Fetcher名称
-		Name() string
+		Named
 		// Apply 传入Fetcher的运行参数
 		Apply(any)
 		// WithDecoder 定义了日志解析对象
@@ -26,9 +31,21 @@ type (
 
 	// LogDecoder 日志解析器
 	LogDecoder interface {
-		// Name 插件名称
-		Name() string
+		Named
 		// Decode 解析函数
 		Decode([]byte) (*pb.LogRecord, error)
+	}
+
+	Valuer func(context.Context, any, string) interface{}
+
+	Processor interface {
+		Named
+		Store(context.Context, any, string) error
+		Set(context.Context, any, string, Valuer) error
+		Delete(context.Context, any, string)
+	}
+
+	Assertor interface {
+		Assert(any) bool
 	}
 )
