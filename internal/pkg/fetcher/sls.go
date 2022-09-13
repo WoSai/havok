@@ -3,6 +3,7 @@ package fetcher
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync/atomic"
 
 	"go.uber.org/zap"
@@ -55,12 +56,14 @@ func (sf *SLSFetcher) Apply(opt any) {
 		panic(err)
 	}
 
-	var option = &SLSOption{}
+	var option = &SLSOption{Concurrency: 100}
 
 	err = json.Unmarshal(b, option)
 	if err != nil {
 		panic(err)
 	}
+	logger.Logger.Info("apply fetcher config", zap.String("name", sf.Name()), zap.Any("config", sf.opt))
+
 	sf.opt = option
 	if sf.opt.Concurrency < 1 {
 		panic(sf.Name() + " concurrency must > 0")
@@ -74,6 +77,10 @@ func (sf *SLSFetcher) WithDecoder(decoder iplugin.LogDecoder) {
 
 // Fetch 定义了抓取方法，基于日志解析出来的LogRecord要求顺序传出，Fetcher的实现上要判断context.Context是否结束的状态，以主动停止自身的工作
 func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
+	if sf.decoder == nil {
+		return errors.New(sf.Name() + " decoder is nil")
+	}
+
 	sf.client = sls.CreateNormalInterface(sf.opt.Endpoint, sf.opt.AccessKeyId, sf.opt.AccessKeySecret, sf.opt.SecurityToken)
 
 	var rest = make(chan chan *pb.LogRecord, sf.opt.Concurrency)
