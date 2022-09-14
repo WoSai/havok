@@ -2,6 +2,7 @@ package fetcher
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync"
 	"testing"
@@ -14,80 +15,124 @@ import (
 )
 
 func TestKafkaFetcher_genBackoff(t *testing.T) {
-	kf := &KafkaFetcher{opt: &kafkaOption{End: 99}}
-	ok := kf.genBackoff()(&timestamppb.Timestamp{Seconds: 100})
-	assert.False(t, ok)
-	ok = kf.genBackoff()(&timestamppb.Timestamp{Seconds: 100})
-	assert.True(t, ok)
-}
+	var endSecond int64 = 99
+	kf := &KafkaFetcher{opt: &kafkaOption{End: endSecond, Threshold: 2}}
 
-func TestKafkaFetcher_Apply(t *testing.T) {
-	kf := NewKafkaFetcher()
-	kf.Apply(map[string]interface{}{})
+	for _, tc := range []struct {
+		name     string
+		second   int64
+		expected bool
+	}{
+		{
+			name:     "log before end, less than threshold",
+			second:   endSecond - 1,
+			expected: false,
+		},
+		{
+			name:     "log after end, less than threshold",
+			second:   endSecond,
+			expected: false,
+		},
+		{
+			name:     "log after end, more than threshold",
+			second:   endSecond,
+			expected: true,
+		},
+		{
+			name:     "log before end, more than threshold, reset threshold",
+			second:   endSecond - 1,
+			expected: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ok := kf.genBackoff()(&pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: tc.second}})
+			assert.Equal(t, tc.expected, ok)
+		})
+	}
 }
 
 func TestKafkaReader_ReadMessage(t *testing.T) {
-	ctl := gomock.NewController(t)
-	reader := NewMockKafkaReader(ctl)
-	reader.EXPECT().SetOffset(gomock.Any()).Return(nil)
-	reader.EXPECT().ReadMessage(gomock.Any()).Return(Message{Offset: 1}, nil).Times(2)
-	reader.EXPECT().ReadMessage(gomock.Any()).Return(Message{}, io.EOF)
-	reader.EXPECT().Close()
-
-	ctx := context.Background()
-
-	kf := NewKafkaFetcher()
-	kf.withBuiltin(func(option *kafkaOption) (KafkaReader, error) {
-		return reader, nil
-	})
-
-	kf.Apply(nil)
-
-	kf.WithDecoder(&testDecoder{})
-
-	var count int
-	var wg sync.WaitGroup
-	var output = make(chan *pb.LogRecord)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for range output {
-			count++
+	var (
+		ctx  = context.Background()
+		msg0 = Message{
+			Offset: 0,
+			Key:    []byte("msg-0"),
+			Value:  []byte("key-0"),
 		}
-	}()
+		msg1 = Message{
+			Offset: 1,
+			Key:    []byte("msg-1"),
+			Value:  []byte("key-1"),
+		}
+	)
 
-	err := kf.Fetch(ctx, output)
-	assert.Nil(t, err)
-	wg.Wait()
-	time.Sleep(time.Second)
-	assert.Equal(t, 2, count)
+	type (
+		msgAndErr struct {
+			Message
+			error
+		}
+	)
+
+	for _, tc := range []struct {
+		name   string
+		actual []msgAndErr
+		count  []int
+	}{
+		{
+			name:   "error io.EOF",
+			actual: []msgAndErr{{Message{}, io.EOF}},
+			count:  []int{0},
+		},
+		{
+			name:   "read finish",
+			actual: []msgAndErr{{msg0, nil}, {msg1, nil}, {Message{}, io.EOF}},
+			count:  []int{2},
+		},
+		{
+			name:   "read error will continue",
+			actual: []msgAndErr{{msg0, nil}, {msg1, errors.New("")}, {Message{}, io.EOF}},
+			count:  []int{1},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctl := gomock.NewController(t)
+			reader := NewMockKafkaReader(ctl)
+			reader.EXPECT().SetOffset(gomock.Any()).Return(nil)
+			reader.EXPECT().Close()
+			for _, msg := range tc.actual {
+				reader.EXPECT().ReadMessage(gomock.Any()).Return(msg.Message, msg.error)
+			}
+
+			kf := newTestKafkaFetcher(reader)
+
+			var (
+				count  int
+				wg     sync.WaitGroup
+				output = make(chan *pb.LogRecord)
+			)
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for range output {
+					count++
+				}
+			}()
+
+			err := kf.Fetch(ctx, output)
+			assert.Nil(t, err)
+			wg.Wait()
+			assert.Equal(t, tc.count[0], count)
+		})
+	}
 }
 
-func TestKafkaReader_ReadMessage_EOF(t *testing.T) {
-	ctl := gomock.NewController(t)
-	reader := NewMockKafkaReader(ctl)
-	reader.EXPECT().SetOffset(gomock.Any()).Return(nil)
-	reader.EXPECT().ReadMessage(gomock.Any()).Return(Message{}, io.EOF)
-	reader.EXPECT().Close()
-
-	ctx := context.Background()
-
+func newTestKafkaFetcher(reader KafkaReader) *KafkaFetcher {
 	kf := NewKafkaFetcher()
+	kf.WithDecoder(&testDecoder{})
 	kf.withBuiltin(func(option *kafkaOption) (KafkaReader, error) {
 		return reader, nil
 	})
-
-	kf.Apply(nil)
-
-	kf.WithDecoder(&testDecoder{})
-
-	var output = make(chan *pb.LogRecord)
-	//go func() {
-	//	for log := range output {
-	//		fmt.Println(log)
-	//	}
-	//}()
-
-	err := kf.Fetch(ctx, output)
-	assert.Nil(t, err)
+	kf.Apply(map[string]interface{}{"begin": time.Now().Add(-time.Minute).Unix(), "end": time.Now().Add(time.Minute).Unix()})
+	return kf
 }

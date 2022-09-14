@@ -12,7 +12,7 @@ type (
 	}
 )
 
-func NewKafkaClient(option *kafkaOption) (*kafkaClient, error) {
+func newKafkaClient(option *kafkaOption) (*kafkaClient, error) {
 	config := kafka.ReaderConfig{
 		Brokers:   option.Broker,
 		Topic:     option.Topic,
