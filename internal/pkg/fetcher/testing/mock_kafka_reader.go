@@ -2,13 +2,14 @@
 // Source: github.com/wosai/havok/internal/pkg/fetcher (interfaces: KafkaReader)
 
 // Package mock_fetcher is a generated GoMock package.
-package fetcher
+package testing
 
 import (
-	context "context"
-	reflect "reflect"
+	"context"
+	"reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
+	"github.com/wosai/havok/internal/pkg/fetcher/kafka"
 )
 
 // MockKafkaReader is a mock of KafkaReader interface.
@@ -47,10 +48,10 @@ func (mr *MockKafkaReaderMockRecorder) Close() *gomock.Call {
 }
 
 // ReadMessage mocks base method.
-func (m *MockKafkaReader) ReadMessage(arg0 context.Context) (Message, error) {
+func (m *MockKafkaReader) ReadMessage(arg0 context.Context) (kafka.Message, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadMessage", arg0)
-	ret0, _ := ret[0].(Message)
+	ret0, _ := ret[0].(kafka.Message)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -10,13 +10,15 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/wosai/havok/internal/pkg/fetcher/kafka"
+	testing2 "github.com/wosai/havok/internal/pkg/fetcher/testing"
 	pb "github.com/wosai/havok/pkg/genproto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestKafkaFetcher_genBackoff(t *testing.T) {
 	var endSecond int64 = 99
-	kf := &KafkaFetcher{opt: &kafkaOption{End: endSecond, Threshold: 2}}
+	kf := &KafkaFetcher{end: time.Unix(endSecond, 0), threshold: 2}
 
 	for _, tc := range []struct {
 		name     string
@@ -54,12 +56,12 @@ func TestKafkaFetcher_genBackoff(t *testing.T) {
 func TestKafkaReader_ReadMessage(t *testing.T) {
 	var (
 		ctx  = context.Background()
-		msg0 = Message{
+		msg0 = kafka.Message{
 			Offset: 0,
 			Key:    []byte("msg-0"),
 			Value:  []byte("key-0"),
 		}
-		msg1 = Message{
+		msg1 = kafka.Message{
 			Offset: 1,
 			Key:    []byte("msg-1"),
 			Value:  []byte("key-1"),
@@ -68,7 +70,7 @@ func TestKafkaReader_ReadMessage(t *testing.T) {
 
 	type (
 		msgAndErr struct {
-			Message
+			kafka.Message
 			error
 		}
 	)
@@ -80,23 +82,23 @@ func TestKafkaReader_ReadMessage(t *testing.T) {
 	}{
 		{
 			name:   "error io.EOF",
-			actual: []msgAndErr{{Message{}, io.EOF}},
+			actual: []msgAndErr{{kafka.Message{}, io.EOF}},
 			count:  []int{0},
 		},
 		{
 			name:   "read finish",
-			actual: []msgAndErr{{msg0, nil}, {msg1, nil}, {Message{}, io.EOF}},
+			actual: []msgAndErr{{msg0, nil}, {msg1, nil}, {kafka.Message{}, io.EOF}},
 			count:  []int{2},
 		},
 		{
 			name:   "read error will continue",
-			actual: []msgAndErr{{msg0, nil}, {msg1, errors.New("")}, {Message{}, io.EOF}},
+			actual: []msgAndErr{{msg0, nil}, {msg1, errors.New("")}, {kafka.Message{}, io.EOF}},
 			count:  []int{1},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctl := gomock.NewController(t)
-			reader := NewMockKafkaReader(ctl)
+			reader := testing2.NewMockKafkaReader(ctl)
 			reader.EXPECT().SetOffset(gomock.Any()).Return(nil)
 			reader.EXPECT().Close()
 			for _, msg := range tc.actual {
@@ -127,10 +129,10 @@ func TestKafkaReader_ReadMessage(t *testing.T) {
 	}
 }
 
-func newTestKafkaFetcher(reader KafkaReader) *KafkaFetcher {
-	kf := NewKafkaFetcher()
+func newTestKafkaFetcher(reader kafka.Reader) *KafkaFetcher {
+	kf := &KafkaFetcher{}
 	kf.WithDecoder(&testDecoder{})
-	kf.withBuiltin(func(option *kafkaOption) (KafkaReader, error) {
+	kf.WithBuiltin(func(option *KafkaOption) (kafka.Reader, error) {
 		return reader, nil
 	})
 	kf.Apply(map[string]interface{}{"begin": time.Now().Add(-time.Minute).Unix(), "end": time.Now().Add(time.Minute).Unix()})

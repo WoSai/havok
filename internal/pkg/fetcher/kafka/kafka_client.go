@@ -1,7 +1,8 @@
-package fetcher
+package kafka
 
 import (
 	"context"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -10,9 +11,18 @@ type (
 	kafkaClient struct {
 		reader *kafka.Reader
 	}
+
+	Option struct {
+		Broker    []string
+		Topic     string
+		Partition int
+		MinBytes  int
+		MaxBytes  int
+		MaxWait   time.Duration
+	}
 )
 
-func newKafkaClient(option *kafkaOption) (*kafkaClient, error) {
+func NewKafkaClient(option *Option) (Reader, error) {
 	config := kafka.ReaderConfig{
 		Brokers:   option.Broker,
 		Topic:     option.Topic,

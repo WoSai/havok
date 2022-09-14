@@ -5,23 +5,26 @@ import (
 	"encoding/json"
 	"errors"
 	"sync/atomic"
+	"time"
 
 	"go.uber.org/zap"
 
 	aliyunsls "github.com/aliyun/aliyun-log-go-sdk"
 	sls "github.com/aliyun/aliyun-log-go-sdk"
-	"github.com/wosai/havok/internal/plugin"
+	iplugin "github.com/wosai/havok/internal/plugin"
 	"github.com/wosai/havok/logger"
 	pb "github.com/wosai/havok/pkg/genproto"
-	iplugin "github.com/wosai/havok/pkg/plugin"
+	"github.com/wosai/havok/pkg/plugin"
 )
 
 type (
 	SLSFetcher struct {
 		client  aliyunsls.ClientInterface
 		store   *aliyunsls.LogStore
-		decoder iplugin.LogDecoder
+		decoder plugin.LogDecoder
 		opt     *SLSOption
+		begin   time.Time
+		end     time.Time
 		offset  int64
 	}
 
@@ -40,7 +43,7 @@ type (
 	}
 )
 
-func NewSLSFetcher() iplugin.Fetcher {
+func NewSLSFetcher() plugin.Fetcher {
 	return &SLSFetcher{}
 }
 
@@ -65,13 +68,15 @@ func (sf *SLSFetcher) Apply(opt any) {
 	logger.Logger.Info("apply fetcher config", zap.String("name", sf.Name()), zap.Any("config", sf.opt))
 
 	sf.opt = option
+	sf.begin = time.Unix(option.Begin, 0)
+	sf.end = time.Unix(option.End, 0)
 	if sf.opt.Concurrency < 1 {
 		panic(sf.Name() + " concurrency must > 0")
 	}
 }
 
 // WithDecoder 定义了日志解析对象
-func (sf *SLSFetcher) WithDecoder(decoder iplugin.LogDecoder) {
+func (sf *SLSFetcher) WithDecoder(decoder plugin.LogDecoder) {
 	sf.decoder = decoder
 }
 
@@ -140,12 +145,14 @@ func (sf *SLSFetcher) read(ctx context.Context, ch chan<- *pb.LogRecord) {
 				logger.Logger.Error("decode sls log fail", zap.Error(err))
 				continue
 			}
-			ch <- l
+			if sf.begin.Before(l.OccurAt.AsTime()) && sf.end.After(l.OccurAt.AsTime()) {
+				ch <- l
+			}
 		}
 		break
 	}
 }
 
 func init() {
-	plugin.Register(NewSLSFetcher())
+	iplugin.Register(NewSLSFetcher())
 }

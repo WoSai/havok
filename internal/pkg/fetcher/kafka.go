@@ -7,55 +7,37 @@ import (
 	"io"
 	"time"
 
-	"github.com/wosai/havok/internal/plugin"
+	"github.com/wosai/havok/internal/pkg/fetcher/kafka"
+	iplugin "github.com/wosai/havok/internal/plugin"
 	"github.com/wosai/havok/logger"
 	pb "github.com/wosai/havok/pkg/genproto"
-	iplugin "github.com/wosai/havok/pkg/plugin"
+	"github.com/wosai/havok/pkg/plugin"
 	"go.uber.org/zap"
 )
 
 type (
 	KafkaFetcher struct {
-		decoder    iplugin.LogDecoder
-		reader     KafkaReader
+		decoder    plugin.LogDecoder
+		reader     kafka.Reader
 		readerFunc KafkaReaderFunc
-		opt        *kafkaOption
+		begin      time.Time
+		end        time.Time
+		threshold  int64
 		count      int64
+		offset     int64
 	}
 
-	KafkaReaderFunc func(option *kafkaOption) (KafkaReader, error)
+	KafkaReaderFunc func(option *KafkaOption) (kafka.Reader, error)
 
-	KafkaReader interface {
-		//ApplyConfig(op)
-		SetOffset(offset int64) error
-		ReadMessage(ctx context.Context) (Message, error)
-		Close()
-	}
-
-	Message struct {
-		Topic     string
-		Partition int
-		Offset    int64
-		Key       []byte
-		Value     []byte
-		Headers   []Header
-		Time      time.Time
-	}
-
-	Header struct {
-		Key   []byte
-		Value []byte
-	}
-
-	kafkaOption struct {
+	KafkaOption struct {
 		Broker    []string
 		Topic     string
 		Partition int
 		MinBytes  int
 		MaxBytes  int
 		MaxWait   time.Duration
-
 		Offset    int64
+
 		Begin     int64
 		End       int64
 		Threshold int64
@@ -64,9 +46,7 @@ type (
 	Backoff func(record *pb.LogRecord) bool
 )
 
-func NewKafkaFetcher() *KafkaFetcher {
-	return &KafkaFetcher{}
-}
+var _ plugin.Fetcher = (*KafkaFetcher)(nil)
 
 // Name Fetcher名称
 func (kf *KafkaFetcher) Name() string {
@@ -80,7 +60,7 @@ func (kf *KafkaFetcher) Apply(opt any) {
 		panic(err)
 	}
 
-	var option = &kafkaOption{MinBytes: 10e3, MaxWait: 10e6, Threshold: 100}
+	var option = &KafkaOption{MinBytes: 10e3, MaxWait: 10e6, Threshold: 100}
 
 	err = json.Unmarshal(b, option)
 	if err != nil {
@@ -88,7 +68,10 @@ func (kf *KafkaFetcher) Apply(opt any) {
 	}
 	logger.Logger.Info("apply fetcher config", zap.String("name", kf.Name()), zap.Any("config", option))
 
-	kf.opt = option
+	kf.begin = time.Unix(option.Begin, 0)
+	kf.end = time.Unix(option.End, 0)
+	kf.threshold = option.Threshold
+	kf.offset = option.Offset
 
 	if kf.readerFunc == nil {
 		panic("build kafka reader fail")
@@ -101,12 +84,12 @@ func (kf *KafkaFetcher) Apply(opt any) {
 	kf.reader = r
 }
 
-func (kf *KafkaFetcher) withBuiltin(f KafkaReaderFunc) {
+func (kf *KafkaFetcher) WithBuiltin(f KafkaReaderFunc) {
 	kf.readerFunc = f
 }
 
 // WithDecoder 定义了日志解析对象
-func (kf *KafkaFetcher) WithDecoder(decoder iplugin.LogDecoder) {
+func (kf *KafkaFetcher) WithDecoder(decoder plugin.LogDecoder) {
 	kf.decoder = decoder
 }
 
@@ -115,9 +98,15 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 		return errors.New(kf.Name() + " decoder/reader is nil")
 	}
 
-	kf.reader.SetOffset(kf.opt.Offset)
+	kf.reader.SetOffset(kf.offset)
 
 	for {
+		select {
+		case <-ctx.Done():
+			break
+		default:
+		}
+
 		msg, err := kf.reader.ReadMessage(ctx)
 
 		if err == io.EOF {
@@ -133,8 +122,7 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 			continue
 		}
 
-		// time range [begin:end)
-		if kf.opt.Begin <= log.OccurAt.GetSeconds() && kf.opt.End > log.OccurAt.GetSeconds() {
+		if kf.begin.Before(log.OccurAt.AsTime()) && kf.end.After(log.OccurAt.AsTime()) {
 			output <- log
 		}
 
@@ -150,9 +138,9 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 func (kf *KafkaFetcher) genBackoff() Backoff {
 	// 连续Threshold条日志超过时间窗口则认为已经读取结束
 	return func(record *pb.LogRecord) bool {
-		if record.OccurAt.GetSeconds() >= kf.opt.End {
+		if record.OccurAt.AsTime().After(kf.end) {
 			kf.count++
-			if kf.count >= kf.opt.Threshold {
+			if kf.count >= kf.threshold {
 				return true
 			}
 		} else {
@@ -163,9 +151,16 @@ func (kf *KafkaFetcher) genBackoff() Backoff {
 }
 
 func init() {
-	kf := NewKafkaFetcher()
-	kf.withBuiltin(func(option *kafkaOption) (KafkaReader, error) {
-		return newKafkaClient(option)
+	kf := &KafkaFetcher{}
+	kf.WithBuiltin(func(option *KafkaOption) (kafka.Reader, error) {
+		return kafka.NewKafkaClient(&kafka.Option{
+			Broker:    option.Broker,
+			Topic:     option.Topic,
+			Partition: option.Partition,
+			MinBytes:  option.MinBytes,
+			MaxBytes:  option.MaxBytes,
+			MaxWait:   option.MaxWait,
+		})
 	})
-	plugin.Register(kf)
+	iplugin.Register(kf)
 }
