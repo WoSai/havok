@@ -17,7 +17,7 @@ import (
 )
 
 func TestKafkaFetcher_genBackoff(t *testing.T) {
-	var endSecond int64 = 99
+	var endSecond int64 = time.Now().Unix()
 	kf := &KafkaFetcher{end: time.Unix(endSecond, 0), threshold: 2}
 
 	for _, tc := range []struct {
@@ -27,22 +27,22 @@ func TestKafkaFetcher_genBackoff(t *testing.T) {
 	}{
 		{
 			name:     "log before end, less than threshold",
-			second:   endSecond - 1,
+			second:   endSecond,
 			expected: false,
 		},
 		{
 			name:     "log after end, less than threshold",
-			second:   endSecond,
+			second:   endSecond + 1,
 			expected: false,
 		},
 		{
 			name:     "log after end, more than threshold",
-			second:   endSecond,
+			second:   endSecond + 1,
 			expected: true,
 		},
 		{
 			name:     "log before end, more than threshold, reset threshold",
-			second:   endSecond - 1,
+			second:   endSecond,
 			expected: false,
 		},
 	} {
