@@ -14,7 +14,7 @@ type (
 	}
 
 	Option struct {
-		Broker    []string
+		Brokers   []string
 		Topic     string
 		Partition int
 		MinBytes  int
@@ -25,12 +25,11 @@ type (
 
 func NewKafkaClient(option *Option) (kafka2.Reader, error) {
 	config := kafka.ReaderConfig{
-		Brokers:   option.Broker,
+		Brokers:   option.Brokers,
 		Topic:     option.Topic,
 		Partition: option.Partition,
 		MinBytes:  option.MinBytes,
 		MaxBytes:  option.MaxBytes,
-		MaxWait:   option.MaxWait,
 	}
 
 	err := config.Validate()

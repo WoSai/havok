@@ -23,9 +23,9 @@ type (
 	}
 
 	FileOption struct {
-		FilePath string
-		Begin    int64
-		End      int64
+		FilePath string `json:"file_path"`
+		Begin    int64  `json:"begin"`
+		End      int64  `json:"end"`
 	}
 )
 

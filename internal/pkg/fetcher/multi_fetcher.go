@@ -24,13 +24,13 @@ type (
 	}
 
 	MultiOption struct {
-		Fetchers []SubFetcherOption
+		Fetchers []SubFetcherOption `json:"fetchers"`
 	}
 
 	SubFetcherOption struct {
-		Name  string
-		Args  any
-		Needs []string
+		Name  string   `json:"name"`
+		Args  any      `json:"args"`
+		Needs []string `json:"needs,omitempty"`
 	}
 
 	indexLog struct {

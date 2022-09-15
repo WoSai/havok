@@ -28,17 +28,17 @@ type (
 	}
 
 	SLSOption struct {
-		Endpoint        string
-		AccessKeyId     string
-		AccessKeySecret string
-		SecurityToken   string
-		ProjectName     string
-		StoreName       string
-		Topic           string
-		Begin           int64
-		End             int64
-		Query           string
-		Concurrency     int64
+		Endpoint        string `json:"endpoint"`
+		AccessKeyId     string `json:"access_key_id"`
+		AccessKeySecret string `json:"access_key_secret"`
+		SecurityToken   string `json:"security_token"`
+		ProjectName     string `json:"project_name"`
+		StoreName       string `json:"store_name"`
+		Topic           string `json:"topic"`
+		Begin           int64  `json:"begin"`
+		End             int64  `json:"end"`
+		Query           string `json:"query"`
+		Concurrency     int64  `json:"concurrency"`
 	}
 )
 
@@ -119,12 +119,12 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 }
 
 func (sf *SLSFetcher) read(ctx context.Context, ch chan<- *pb.LogRecord) {
+	defer close(ch)
 	if sf.client == nil || sf.decoder == nil {
 		logger.Logger.Error("sls client or decoder is nil")
 		return
 	}
 	var retry int = 3
-	defer close(ch)
 
 	offset := atomic.AddInt64(&sf.offset, lines) - lines
 

@@ -54,7 +54,7 @@ func TestKafkaReader_ReadMessage(t *testing.T) {
 		},
 		{
 			name:   "read error will continue",
-			actual: []msgAndErr{{msg0, nil}, {msg1, errors.New("")}, {kafka.Message{}, io.EOF}},
+			actual: []msgAndErr{{msg0, nil}, {msg1, errors.New("read error")}, {kafka.Message{}, io.EOF}},
 			count:  []int{1},
 		},
 	} {

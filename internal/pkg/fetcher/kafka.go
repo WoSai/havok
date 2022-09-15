@@ -30,17 +30,16 @@ type (
 	KafkaReaderFunc func(option *KafkaOption) (kafka.Reader, error)
 
 	KafkaOption struct {
-		Broker    []string
-		Topic     string
-		Partition int
-		MinBytes  int
-		MaxBytes  int
-		MaxWait   time.Duration
-		Offset    int64
+		Brokers   []string `json:"brokers"`
+		Topic     string   `json:"topic"`
+		Partition int      `json:"partition"`
+		MinBytes  int      `json:"min_bytes"`
+		MaxBytes  int      `json:"max_bytes"`
+		Offset    int64    `json:"offset"`
 
-		Begin     int64
-		End       int64
-		Threshold int64
+		Begin     int64 `json:"begin"`
+		End       int64 `json:"end"`
+		Threshold int64 `json:"threshold"`
 	}
 
 	Backoff func(record *pb.LogRecord) bool
@@ -60,7 +59,7 @@ func (kf *KafkaFetcher) Apply(opt any) {
 		panic(err)
 	}
 
-	var option = &KafkaOption{MinBytes: 10e3, MaxWait: 10e6, Threshold: 100}
+	var option = &KafkaOption{MinBytes: 10e3, MaxBytes: 10e6, Threshold: 100}
 
 	err = json.Unmarshal(b, option)
 	if err != nil {
@@ -140,12 +139,11 @@ func init() {
 	kf := &KafkaFetcher{}
 	kf.WithBuiltin(func(option *KafkaOption) (kafka.Reader, error) {
 		return NewKafkaClient(&Option{
-			Broker:    option.Broker,
+			Brokers:   option.Brokers,
 			Topic:     option.Topic,
 			Partition: option.Partition,
 			MinBytes:  option.MinBytes,
 			MaxBytes:  option.MaxBytes,
-			MaxWait:   option.MaxWait,
 		})
 	})
 	iplugin.Register(kf)
