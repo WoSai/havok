@@ -122,38 +122,24 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 			continue
 		}
 
-		if kf.begin.Before(log.OccurAt.AsTime()) && kf.end.After(log.OccurAt.AsTime()) {
-			output <- log
+		if log.OccurAt.AsTime().Before(kf.begin) {
+			continue
 		}
 
-		if kf.genBackoff()(log) {
+		if log.OccurAt.AsTime().After(kf.end) {
 			break
 		}
+		output <- log
 	}
 	kf.reader.Close()
 	close(output)
 	return nil
 }
 
-func (kf *KafkaFetcher) genBackoff() Backoff {
-	// 连续Threshold条日志超过时间窗口则认为已经读取结束
-	return func(record *pb.LogRecord) bool {
-		if record.OccurAt.AsTime().After(kf.end) {
-			kf.count++
-			if kf.count >= kf.threshold {
-				return true
-			}
-		} else {
-			kf.count = 0
-		}
-		return false
-	}
-}
-
 func init() {
 	kf := &KafkaFetcher{}
 	kf.WithBuiltin(func(option *KafkaOption) (kafka.Reader, error) {
-		return kafka.NewKafkaClient(&kafka.Option{
+		return NewKafkaClient(&Option{
 			Broker:    option.Broker,
 			Topic:     option.Topic,
 			Partition: option.Partition,

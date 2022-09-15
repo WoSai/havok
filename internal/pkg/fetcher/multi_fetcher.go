@@ -23,11 +23,11 @@ type (
 		wg        sync.WaitGroup
 	}
 
-	multiOption struct {
-		Fetchers []fetcherOption
+	MultiOption struct {
+		Fetchers []SubFetcherOption
 	}
 
-	fetcherOption struct {
+	SubFetcherOption struct {
 		Name  string
 		Args  any
 		Needs []string
@@ -58,7 +58,7 @@ func (mf *MultiFetcher) Apply(opt any) {
 		panic(err)
 	}
 
-	var option = multiOption{}
+	var option = MultiOption{}
 	err = json.Unmarshal(b, &option)
 	if err != nil {
 		panic(err)

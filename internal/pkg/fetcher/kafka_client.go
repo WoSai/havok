@@ -1,10 +1,11 @@
-package kafka
+package fetcher
 
 import (
 	"context"
 	"time"
 
 	"github.com/segmentio/kafka-go"
+	kafka2 "github.com/wosai/havok/internal/pkg/fetcher/kafka"
 )
 
 type (
@@ -22,7 +23,7 @@ type (
 	}
 )
 
-func NewKafkaClient(option *Option) (Reader, error) {
+func NewKafkaClient(option *Option) (kafka2.Reader, error) {
 	config := kafka.ReaderConfig{
 		Brokers:   option.Broker,
 		Topic:     option.Topic,
@@ -46,16 +47,16 @@ func (c *kafkaClient) SetOffset(offset int64) error {
 	return c.reader.SetOffset(offset)
 }
 
-func (c *kafkaClient) ReadMessage(ctx context.Context) (Message, error) {
+func (c *kafkaClient) ReadMessage(ctx context.Context) (kafka2.Message, error) {
 	msg, err := c.reader.ReadMessage(ctx)
 	if err != nil {
-		return Message{}, err
+		return kafka2.Message{}, err
 	}
-	var headers = make([]Header, len(msg.Headers))
+	var headers = make([]kafka2.Header, len(msg.Headers))
 	for i, h := range msg.Headers {
-		headers[i] = Header{Key: []byte(h.Key), Value: h.Value}
+		headers[i] = kafka2.Header{Key: []byte(h.Key), Value: h.Value}
 	}
-	return Message{
+	return kafka2.Message{
 		Topic:     msg.Topic,
 		Partition: msg.Partition,
 		Offset:    msg.Offset,

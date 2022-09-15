@@ -13,45 +13,7 @@ import (
 	"github.com/wosai/havok/internal/pkg/fetcher/kafka"
 	testing2 "github.com/wosai/havok/internal/pkg/fetcher/testing"
 	pb "github.com/wosai/havok/pkg/genproto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-func TestKafkaFetcher_genBackoff(t *testing.T) {
-	var endSecond int64 = time.Now().Unix()
-	kf := &KafkaFetcher{end: time.Unix(endSecond, 0), threshold: 2}
-
-	for _, tc := range []struct {
-		name     string
-		second   int64
-		expected bool
-	}{
-		{
-			name:     "log before end, less than threshold",
-			second:   endSecond,
-			expected: false,
-		},
-		{
-			name:     "log after end, less than threshold",
-			second:   endSecond + 1,
-			expected: false,
-		},
-		{
-			name:     "log after end, more than threshold",
-			second:   endSecond + 1,
-			expected: true,
-		},
-		{
-			name:     "log before end, more than threshold, reset threshold",
-			second:   endSecond,
-			expected: false,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			ok := kf.genBackoff()(&pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: tc.second}})
-			assert.Equal(t, tc.expected, ok)
-		})
-	}
-}
 
 func TestKafkaReader_ReadMessage(t *testing.T) {
 	var (

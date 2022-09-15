@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/wosai/havok/internal/plugin"
+	"github.com/wosai/havok/logger"
 	pb "github.com/wosai/havok/pkg/genproto"
 	iplugin "github.com/wosai/havok/pkg/plugin"
+	"go.uber.org/zap"
 )
 
 type (
@@ -49,6 +51,7 @@ func (ff *FileFetcher) Apply(opt any) {
 	if err != nil {
 		panic(err)
 	}
+	logger.Logger.Info("apply fetcher config", zap.String("name", ff.Name()), zap.Any("config", option))
 
 	ff.filePath = option.FilePath
 	ff.begin = time.Unix(option.Begin, 0)
