@@ -9,7 +9,6 @@ import (
 
 	"go.uber.org/zap"
 
-	aliyunsls "github.com/aliyun/aliyun-log-go-sdk"
 	sls "github.com/aliyun/aliyun-log-go-sdk"
 	iplugin "github.com/wosai/havok/internal/plugin"
 	"github.com/wosai/havok/logger"
@@ -19,13 +18,13 @@ import (
 
 type (
 	SLSFetcher struct {
-		client  aliyunsls.ClientInterface
-		store   *aliyunsls.LogStore
+		client  sls.ClientInterface
 		decoder plugin.LogDecoder
 		opt     *SLSOption
 		begin   time.Time
 		end     time.Time
 		offset  int64
+		readed  int32
 	}
 
 	SLSOption struct {
@@ -42,6 +41,8 @@ type (
 		Concurrency     int64
 	}
 )
+
+var lines int64 = 100 // sls GetLogLines 一页最大返回行数为100
 
 func NewSLSFetcher() plugin.Fetcher {
 	return &SLSFetcher{}
@@ -89,6 +90,8 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 	sf.client = sls.CreateNormalInterface(sf.opt.Endpoint, sf.opt.AccessKeyId, sf.opt.AccessKeySecret, sf.opt.SecurityToken)
 
 	var rest = make(chan chan *pb.LogRecord, sf.opt.Concurrency)
+	defer close(rest)
+
 	go func() {
 		defer close(output)
 		for ch := range rest {
@@ -101,21 +104,25 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 	for {
 		select {
 		case <-ctx.Done():
-			close(rest)
 			return ctx.Err()
 		default:
 		}
-		var ch = make(chan *pb.LogRecord)
-		go sf.read(ctx, ch)
+		// 读完了, 不再启动新的协程
+		if sf.isReaded() {
+			break
+		}
+		var ch = make(chan *pb.LogRecord, lines)
 		rest <- ch
+		go sf.read(ctx, ch)
 	}
+	return nil
 }
 
 func (sf *SLSFetcher) read(ctx context.Context, ch chan<- *pb.LogRecord) {
-	if sf.client == nil {
+	if sf.client == nil || sf.decoder == nil {
+		logger.Logger.Error("sls client or decoder is nil")
 		return
 	}
-	var lines int64 = 100
 	var retry int = 3
 	defer close(ch)
 
@@ -136,21 +143,25 @@ func (sf *SLSFetcher) read(ctx context.Context, ch chan<- *pb.LogRecord) {
 		}
 		// 读完了
 		if logs.Count < lines {
-			ctx.Done()
+			atomic.CompareAndSwapInt32(&sf.readed, 0, 1)
 		}
 
-		for _, log := range logs.Lines {
-			l, err := sf.decoder.Decode(log)
+		for _, line := range logs.Lines {
+			log, err := sf.decoder.Decode(line)
 			if err != nil {
 				logger.Logger.Error("decode sls log fail", zap.Error(err))
 				continue
 			}
-			if sf.begin.Before(l.OccurAt.AsTime()) && sf.end.After(l.OccurAt.AsTime()) {
-				ch <- l
+			if sf.begin.Before(log.OccurAt.AsTime()) && sf.end.After(log.OccurAt.AsTime()) {
+				ch <- log
 			}
 		}
 		break
 	}
+}
+
+func (sf *SLSFetcher) isReaded() bool {
+	return atomic.LoadInt32(&sf.readed) == 1
 }
 
 func init() {
