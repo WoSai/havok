@@ -21,13 +21,7 @@ type (
 	}
 
 	MultiOption struct {
-		Fetchers []SubFetcherOption `json:"fetchers"`
-	}
-
-	SubFetcherOption struct {
-		Name  string   `json:"name"`
-		Args  any      `json:"args"`
-		Needs []string `json:"needs,omitempty"`
+		Fetchers []string `json:"fetchers" yaml:"fetchers" toml:"fetchers"`
 	}
 
 	indexLog struct {
@@ -63,19 +57,13 @@ func (mf *MultiFetcher) Apply(opt any) {
 	logger.Logger.Info("apply fetcher config", zap.String("name", mf.Name()), zap.Any("config", option))
 
 	for _, cfg := range option.Fetchers {
-		f := iplugin.LookupFetcher(cfg.Name)
-		f.Apply(cfg.Args)
-		if len(cfg.Needs) > 1 {
-			panic(mf.Name() + " invalid option: fetcher.needs > 1")
-		} else if len(cfg.Needs) == 1 {
-			f.WithDecoder(iplugin.LookupDecoder(cfg.Needs[0]))
-		}
+		f := iplugin.LookupFetcher(cfg)
 		mf.fetchers = append(mf.fetchers, f)
 	}
 }
 
 func (mf *MultiFetcher) WithDecoder(decoder plugin.LogDecoder) {
-	panic(mf.Name() + " don't need decoder. Please configure the decoder in sub fetcher.")
+
 }
 
 func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
@@ -123,39 +111,46 @@ func (mf *MultiFetcher) prepareSortLogs() {
 
 // read from multi fetcher --> sort logs --> write into channel
 func (mf *MultiFetcher) loop(ctx context.Context, output chan<- *pb.LogRecord) error {
-start:
-	// exit when all logs are read
-	if len(mf.sortLogs) == 0 {
-		return nil
-	}
-
-	output <- mf.sortLogs[0].LogRecord
-	minIdx := mf.sortLogs[0].idx
 
 	for {
+		// exit when all logs are read
+		if len(mf.sortLogs) == 0 {
+			return nil
+		}
+
+		minLog := mf.sortLogs[0]
+		output <- minLog.LogRecord
+		minIdx := minLog.idx
+		mf.sortLogs = mf.sortLogs[1:]
+
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
 		case c, ok := <-mf.rChannels[minIdx]:
-			// remove the indexLog when channel is closed
 			if !ok {
-				mf.sortLogs = mf.sortLogs[1:]
-				goto start
+				continue
 			}
-			if len(mf.sortLogs) > 1 && c.OccurAt.AsTime().After(mf.sortLogs[1].OccurAt.AsTime()) {
-				mf.sortLogs[0] = &indexLog{
-					LogRecord: c,
-					idx:       minIdx,
-				}
-				// TODO 可以针对大量fetcher做优化
-				sort.Slice(mf.sortLogs, func(i, j int) bool {
-					return mf.sortLogs[i].OccurAt.AsTime().Before(mf.sortLogs[j].OccurAt.AsTime())
-				})
-				goto start
+
+			log := &indexLog{
+				LogRecord: c,
+				idx:       minIdx,
 			}
-			output <- c
+			mf.sortLogs = insertSortedLogs(mf.sortLogs, log, func(i int) bool {
+				return log.OccurAt.AsTime().Before(mf.sortLogs[i].OccurAt.AsTime())
+			})
 		}
 	}
+}
+
+func (mf *MultiFetcher) insertSortedLogs(log *indexLog, isInsert func(i int) bool) {
+	for i := 0; i < len(mf.sortLogs)-1; i++ {
+		if log.idx < mf.sortLogs[i].idx {
+			mf.sortLogs = append(mf.sortLogs, log)
+			copy(mf.sortLogs[i+1:], mf.sortLogs[i:])
+			mf.sortLogs[i] = log
+
+			return
+		}
+	}
+	mf.sortLogs = append(mf.sortLogs, log)
 }
 
 func (mf *MultiFetcher) cancelReadFetchers() {
@@ -164,4 +159,17 @@ func (mf *MultiFetcher) cancelReadFetchers() {
 
 func init() {
 	iplugin.Register(NewMultiFetcher())
+}
+
+func insertSortedLogs(x []*indexLog, log *indexLog, insert func(i int) bool) []*indexLog {
+	for i := 0; i < len(x); i++ {
+		if insert(i) {
+			x = append(x, log)
+			copy(x[i+1:], x[i:])
+			x[i] = log
+
+			return x
+		}
+	}
+	return append(x, log)
 }

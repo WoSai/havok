@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/wosai/havok/internal/pkg/fetcher/kafka"
+	"github.com/segmentio/kafka-go"
 	iplugin "github.com/wosai/havok/internal/plugin"
 	"github.com/wosai/havok/logger"
 	pb "github.com/wosai/havok/pkg/genproto"
@@ -16,35 +16,38 @@ import (
 
 type (
 	KafkaFetcher struct {
-		decoder    plugin.LogDecoder
-		reader     kafka.Reader
-		readerFunc KafkaReaderFunc
-		begin      time.Time
-		end        time.Time
-		threshold  int64
-		count      int64
-		offset     int64
+		decoder   plugin.LogDecoder
+		reader    *kafka.Reader
+		begin     time.Time
+		end       time.Time
+		threshold int64
+		count     int64
+		offset    int64
 	}
 
 	KafkaReaderFunc func(option *KafkaOption) (kafka.Reader, error)
 
 	KafkaOption struct {
-		Brokers   []string `json:"brokers"`
-		Topic     string   `json:"topic"`
-		Partition int      `json:"partition"`
-		MinBytes  int      `json:"min_bytes"`
-		MaxBytes  int      `json:"max_bytes"`
-		Offset    int64    `json:"offset"`
+		Brokers   []string `json:"brokers" yaml:"brokers" toml:"brokers"`
+		Topic     string   `json:"topic" yaml:"topic" toml:"topic"`
+		Partition int      `json:"partition" yaml:"partition" toml:"partition"`
+		MinBytes  int      `json:"min_bytes" yaml:"min_bytes" toml:"min_bytes"`
+		MaxBytes  int      `json:"max_bytes" yaml:"max_bytes" toml:"max_bytes"`
+		Offset    int64    `json:"offset" yaml:"offset" toml:"offset"`
 
-		Begin     int64 `json:"begin"`
-		End       int64 `json:"end"`
-		Threshold int64 `json:"threshold"`
+		Begin     string `json:"begin" yaml:"begin" toml:"begin"`
+		End       string `json:"end" yaml:"end" toml:"end"`
+		Threshold int64  `json:"threshold" yaml:"threshold" toml:"threshold"`
 	}
 
 	Backoff func(record *pb.LogRecord) bool
 )
 
 var _ plugin.Fetcher = (*KafkaFetcher)(nil)
+
+func NewKafkaFetcher() plugin.Fetcher {
+	return &KafkaFetcher{}
+}
 
 // Name Fetcher名称
 func (kf *KafkaFetcher) Name() string {
@@ -66,24 +69,25 @@ func (kf *KafkaFetcher) Apply(opt any) {
 	}
 	logger.Logger.Info("apply fetcher config", zap.String("name", kf.Name()), zap.Any("config", option))
 
-	kf.begin = time.Unix(option.Begin, 0)
-	kf.end = time.Unix(option.End, 0)
+	kf.begin = ParseTime(option.Begin)
+	kf.end = ParseTime(option.End)
 	kf.threshold = option.Threshold
 	kf.offset = option.Offset
 
-	if kf.readerFunc == nil {
-		panic(kf.Name() + " invalid " + " params: readerFunc is nil")
+	config := kafka.ReaderConfig{
+		Brokers:   option.Brokers,
+		Topic:     option.Topic,
+		Partition: option.Partition,
+		MinBytes:  option.MinBytes,
+		MaxBytes:  option.MaxBytes,
 	}
 
-	r, err := kf.readerFunc(option)
+	err = config.Validate()
 	if err != nil {
 		panic(err)
 	}
-	kf.reader = r
-}
 
-func (kf *KafkaFetcher) WithBuiltin(f KafkaReaderFunc) {
-	kf.readerFunc = f
+	kf.reader = kafka.NewReader(config)
 }
 
 // WithDecoder 定义了日志解析对象
@@ -93,8 +97,8 @@ func (kf *KafkaFetcher) WithDecoder(decoder plugin.LogDecoder) {
 
 func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
 	defer close(output)
-	if kf.reader == nil || kf.decoder == nil {
-		return errors.New(kf.Name() + " decoder/reader is nil")
+	if kf.decoder == nil {
+		return errors.New(kf.Name() + " decoder is nil")
 	}
 	defer kf.reader.Close()
 
@@ -134,15 +138,5 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 }
 
 func init() {
-	kf := &KafkaFetcher{}
-	kf.WithBuiltin(func(option *KafkaOption) (kafka.Reader, error) {
-		return NewKafkaClient(&Option{
-			Brokers:   option.Brokers,
-			Topic:     option.Topic,
-			Partition: option.Partition,
-			MinBytes:  option.MinBytes,
-			MaxBytes:  option.MaxBytes,
-		})
-	})
-	iplugin.Register(kf)
+	iplugin.Register(NewKafkaFetcher())
 }

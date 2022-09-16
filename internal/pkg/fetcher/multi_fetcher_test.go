@@ -85,21 +85,13 @@ func TestMultiFetcher_Fetch(t *testing.T) {
 		// 断言log数量相等
 		assert.Equal(t, tc.expected, count)
 		// 断言log是有序的
+		for _, output := range outputs {
+			fmt.Println(output.OccurAt)
+		}
 		assert.True(t, sort.SliceIsSorted(outputs, func(i, j int) bool {
 			return outputs[i].OccurAt.AsTime().Before(outputs[j].OccurAt.AsTime())
 		}))
 	}
-}
-
-func TestMultiFetcher_WithDecoder(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
-		}
-	}()
-
-	mf := NewMultiFetcher()
-	mf.WithDecoder(nil)
 }
 
 type (
@@ -222,4 +214,66 @@ func fetchFunc(id int, num int) func(ctx context.Context, output chan<- *pb.LogR
 		close(output)
 		return nil
 	}
+}
+
+func TestInsertSortedSlice(t *testing.T) {
+
+	for _, tc := range []struct {
+		name     string
+		actual   []*indexLog
+		insert   *indexLog
+		expected []*indexLog
+	}{
+		{
+			name: "",
+			actual: []*indexLog{
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 2}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 3}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 5}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 6}}},
+			},
+			insert: &indexLog{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 4}}},
+			expected: []*indexLog{
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 2}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 3}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 4}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 5}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 6}}},
+			},
+		},
+		{
+			name: "",
+			actual: []*indexLog{
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 7}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 7}}},
+			},
+			insert: &indexLog{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 6}}},
+			expected: []*indexLog{
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 6}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 7}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 7}}},
+			},
+		},
+		{
+			name: "",
+			actual: []*indexLog{
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 19}}},
+			},
+			insert: &indexLog{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 12}}},
+			expected: []*indexLog{
+				{idx: 6},
+				{idx: 7},
+				{idx: 7},
+			},
+		},
+	} {
+		fmt.Println(tc.actual)
+
+		x := insertSortedLogs(tc.actual, tc.insert, func(i int) bool {
+			return tc.insert.OccurAt.AsTime().Before(tc.actual[i].OccurAt.AsTime())
+		})
+
+		fmt.Println(x)
+	}
+
 }

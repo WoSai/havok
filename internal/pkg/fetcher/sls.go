@@ -35,8 +35,8 @@ type (
 		ProjectName     string `json:"project_name"`
 		StoreName       string `json:"store_name"`
 		Topic           string `json:"topic"`
-		Begin           int64  `json:"begin"`
-		End             int64  `json:"end"`
+		Begin           string `json:"begin"`
+		End             string `json:"end"`
 		Query           string `json:"query"`
 		Concurrency     int64  `json:"concurrency"`
 	}
@@ -69,8 +69,8 @@ func (sf *SLSFetcher) Apply(opt any) {
 	logger.Logger.Info("apply fetcher config", zap.String("name", sf.Name()), zap.Any("config", option))
 
 	sf.opt = option
-	sf.begin = time.Unix(option.Begin, 0)
-	sf.end = time.Unix(option.End, 0)
+	sf.begin = ParseTime(option.Begin)
+	sf.end = ParseTime(option.End)
 	if sf.opt.Concurrency < 1 {
 		panic(sf.Name() + " invalid option: " + "concurrency must > 0")
 	}
@@ -132,7 +132,7 @@ func (sf *SLSFetcher) read(ctx context.Context, offset int64, ch chan<- *pb.LogR
 	for retry > 0 {
 		retry--
 		logs, err := sf.client.GetLogLines(sf.opt.ProjectName, sf.opt.StoreName, sf.opt.Topic,
-			sf.opt.Begin, sf.opt.End, sf.opt.Query, lines, offset, false)
+			sf.begin.Unix(), sf.end.Unix(), sf.opt.Query, lines, offset, false)
 		if err != nil {
 			logger.Logger.Error("get sls logs fail", zap.Error(err))
 			continue

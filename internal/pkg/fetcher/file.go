@@ -24,8 +24,8 @@ type (
 
 	FileOption struct {
 		FilePath string `json:"file_path"`
-		Begin    int64  `json:"begin"`
-		End      int64  `json:"end"`
+		Begin    string `json:"begin"`
+		End      string `json:"end"`
 	}
 )
 
@@ -54,8 +54,8 @@ func (ff *FileFetcher) Apply(opt any) {
 	logger.Logger.Info("apply fetcher config", zap.String("name", ff.Name()), zap.Any("config", option))
 
 	ff.filePath = option.FilePath
-	ff.begin = time.Unix(option.Begin, 0)
-	ff.end = time.Unix(option.End, 0)
+	ff.begin = ParseTime(option.Begin)
+	ff.end = ParseTime(option.End)
 }
 
 func (ff *FileFetcher) WithDecoder(decoder iplugin.LogDecoder) {
