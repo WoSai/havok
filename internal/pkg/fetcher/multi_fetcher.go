@@ -140,19 +140,6 @@ func (mf *MultiFetcher) loop(ctx context.Context, output chan<- *pb.LogRecord) e
 	}
 }
 
-func (mf *MultiFetcher) insertSortedLogs(log *indexLog, isInsert func(i int) bool) {
-	for i := 0; i < len(mf.sortLogs)-1; i++ {
-		if log.idx < mf.sortLogs[i].idx {
-			mf.sortLogs = append(mf.sortLogs, log)
-			copy(mf.sortLogs[i+1:], mf.sortLogs[i:])
-			mf.sortLogs[i] = log
-
-			return
-		}
-	}
-	mf.sortLogs = append(mf.sortLogs, log)
-}
-
 func (mf *MultiFetcher) cancelReadFetchers() {
 	mf.cancel()
 }
