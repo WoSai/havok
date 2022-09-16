@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
-	"sync"
 
 	iplugin "github.com/wosai/havok/internal/plugin"
 	"github.com/wosai/havok/logger"
@@ -17,10 +16,8 @@ type (
 	MultiFetcher struct {
 		fetchers  []plugin.Fetcher
 		rChannels []chan *pb.LogRecord
-		wChannel  chan<- *pb.LogRecord
 		sortLogs  []*indexLog
-		cancels   []context.CancelFunc
-		wg        sync.WaitGroup
+		cancel    context.CancelFunc
 	}
 
 	MultiOption struct {
@@ -63,12 +60,13 @@ func (mf *MultiFetcher) Apply(opt any) {
 	if err != nil {
 		panic(err)
 	}
+	logger.Logger.Info("apply fetcher config", zap.String("name", mf.Name()), zap.Any("config", option))
 
 	for _, cfg := range option.Fetchers {
 		f := iplugin.LookupFetcher(cfg.Name)
 		f.Apply(cfg.Args)
 		if len(cfg.Needs) > 1 {
-			panic("invalid plugin option: fetcher.needs > 1")
+			panic(mf.Name() + " invalid option: fetcher.needs > 1")
 		} else if len(cfg.Needs) == 1 {
 			f.WithDecoder(iplugin.LookupDecoder(cfg.Needs[0]))
 		}
@@ -81,70 +79,65 @@ func (mf *MultiFetcher) WithDecoder(decoder plugin.LogDecoder) {
 }
 
 func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
-	mf.init(ctx, output)
-	mf.loop(ctx)
-	mf.close()
+	defer close(output)
+	mf.readFetchers(ctx)
+	defer mf.cancelReadFetchers()
 
-	mf.wg.Wait()
-	return nil
+	mf.prepareSortLogs()
+	err := mf.loop(ctx, output)
+	return err
 }
 
-func (mf *MultiFetcher) init(ctx context.Context, output chan<- *pb.LogRecord) {
-	mf.wChannel = output
+func (mf *MultiFetcher) readFetchers(ctx context.Context) {
 	mf.rChannels = make([]chan *pb.LogRecord, len(mf.fetchers))
-	mf.cancels = make([]context.CancelFunc, len(mf.fetchers))
-	for i, f := range mf.fetchers {
-		mf.wg.Add(1)
+	cancelCtx, cancel := context.WithCancel(ctx)
+	mf.cancel = cancel
 
+	for i, _ := range mf.fetchers {
 		ch := make(chan *pb.LogRecord, 10)
 		mf.rChannels[i] = ch
 
-		ctx, cancel := context.WithCancel(ctx)
-		mf.cancels[i] = cancel
-
-		go func(ctx context.Context, ch chan *pb.LogRecord, f plugin.Fetcher) {
-			defer mf.wg.Done()
-
-			err := f.Fetch(ctx, ch)
+		go func(ctx context.Context, i int) {
+			err := mf.fetchers[i].Fetch(ctx, mf.rChannels[i])
 			if err != nil {
 				logger.Logger.Error("sub fetcher Fetch fail", zap.String("name", mf.fetchers[i].Name()), zap.Error(err))
 			}
-		}(ctx, ch, f)
-	}
-
-	for i, subCh := range mf.rChannels {
-		select {
-		case val, ok := <-subCh:
-			if ok {
-				mf.sortLogs = append(mf.sortLogs, &indexLog{
-					LogRecord: val,
-					idx:       i,
-				})
-			}
-		}
+		}(cancelCtx, i)
 	}
 }
 
-// read from multi fetcher --> sort logs --> write into channel
-func (mf *MultiFetcher) loop(ctx context.Context) {
-start:
-	if len(mf.sortLogs) == 0 {
-		return
+func (mf *MultiFetcher) prepareSortLogs() {
+	for i, subCh := range mf.rChannels {
+		val, ok := <-subCh
+		if ok {
+			mf.sortLogs = append(mf.sortLogs, &indexLog{
+				LogRecord: val,
+				idx:       i,
+			})
+		}
 	}
-	// TODO 可以针对大量fetcher做优化
 	sort.Slice(mf.sortLogs, func(i, j int) bool {
 		return mf.sortLogs[i].OccurAt.AsTime().Before(mf.sortLogs[j].OccurAt.AsTime())
 	})
+}
 
-	mf.wChannel <- mf.sortLogs[0].LogRecord
+// read from multi fetcher --> sort logs --> write into channel
+func (mf *MultiFetcher) loop(ctx context.Context, output chan<- *pb.LogRecord) error {
+start:
+	// exit when all logs are read
+	if len(mf.sortLogs) == 0 {
+		return nil
+	}
+
+	output <- mf.sortLogs[0].LogRecord
 	minIdx := mf.sortLogs[0].idx
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case c, ok := <-mf.rChannels[minIdx]:
-			// channel is closed
+			// remove the indexLog when channel is closed
 			if !ok {
 				mf.sortLogs = mf.sortLogs[1:]
 				goto start
@@ -154,20 +147,19 @@ start:
 					LogRecord: c,
 					idx:       minIdx,
 				}
+				// TODO 可以针对大量fetcher做优化
+				sort.Slice(mf.sortLogs, func(i, j int) bool {
+					return mf.sortLogs[i].OccurAt.AsTime().Before(mf.sortLogs[j].OccurAt.AsTime())
+				})
 				goto start
 			}
-			mf.wChannel <- c
-
-		default:
+			output <- c
 		}
 	}
 }
 
-func (mf *MultiFetcher) close() {
-	for _, cancel := range mf.cancels {
-		cancel()
-	}
-	close(mf.wChannel)
+func (mf *MultiFetcher) cancelReadFetchers() {
+	mf.cancel()
 }
 
 func init() {

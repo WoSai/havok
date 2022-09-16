@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"time"
 
 	"github.com/wosai/havok/internal/pkg/fetcher/kafka"
@@ -73,7 +72,7 @@ func (kf *KafkaFetcher) Apply(opt any) {
 	kf.offset = option.Offset
 
 	if kf.readerFunc == nil {
-		panic("build kafka reader fail")
+		panic(kf.Name() + " invalid " + " params: readerFunc is nil")
 	}
 
 	r, err := kf.readerFunc(option)
@@ -93,27 +92,28 @@ func (kf *KafkaFetcher) WithDecoder(decoder plugin.LogDecoder) {
 }
 
 func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
+	defer close(output)
 	if kf.reader == nil || kf.decoder == nil {
 		return errors.New(kf.Name() + " decoder/reader is nil")
 	}
+	defer kf.reader.Close()
 
-	kf.reader.SetOffset(kf.offset)
+	err := kf.reader.SetOffset(kf.offset)
+	if err != nil {
+		return err
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			break
+			return ctx.Err()
 		default:
 		}
 
 		msg, err := kf.reader.ReadMessage(ctx)
-
-		if err == io.EOF {
-			break
-		}
 		if err != nil {
 			logger.Logger.Error("get kafka logs fail", zap.Error(err))
-			continue
+			break
 		}
 		log, err := kf.decoder.Decode(msg.Value)
 		if err != nil {
@@ -130,8 +130,6 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 		}
 		output <- log
 	}
-	kf.reader.Close()
-	close(output)
 	return nil
 }
 

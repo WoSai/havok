@@ -66,13 +66,13 @@ func (sf *SLSFetcher) Apply(opt any) {
 	if err != nil {
 		panic(err)
 	}
-	logger.Logger.Info("apply fetcher config", zap.String("name", sf.Name()), zap.Any("config", sf.opt))
+	logger.Logger.Info("apply fetcher config", zap.String("name", sf.Name()), zap.Any("config", option))
 
 	sf.opt = option
 	sf.begin = time.Unix(option.Begin, 0)
 	sf.end = time.Unix(option.End, 0)
 	if sf.opt.Concurrency < 1 {
-		panic(sf.Name() + " concurrency must > 0")
+		panic(sf.Name() + " invalid option: " + "concurrency must > 0")
 	}
 }
 
@@ -101,6 +101,8 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 		}
 	}()
 
+	var offset int64 = 0
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -113,20 +115,19 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 		}
 		var ch = make(chan *pb.LogRecord, lines)
 		rest <- ch
-		go sf.read(ctx, ch)
+		go sf.read(ctx, offset, ch)
+		offset = offset + lines
 	}
 	return nil
 }
 
-func (sf *SLSFetcher) read(ctx context.Context, ch chan<- *pb.LogRecord) {
+func (sf *SLSFetcher) read(ctx context.Context, offset int64, ch chan<- *pb.LogRecord) {
 	defer close(ch)
 	if sf.client == nil || sf.decoder == nil {
 		logger.Logger.Error("sls client or decoder is nil")
 		return
 	}
 	var retry int = 3
-
-	offset := atomic.AddInt64(&sf.offset, lines) - lines
 
 	for retry > 0 {
 		retry--

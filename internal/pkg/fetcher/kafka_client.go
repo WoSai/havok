@@ -2,7 +2,6 @@ package fetcher
 
 import (
 	"context"
-	"time"
 
 	"github.com/segmentio/kafka-go"
 	kafka2 "github.com/wosai/havok/internal/pkg/fetcher/kafka"
@@ -19,7 +18,6 @@ type (
 		Partition int
 		MinBytes  int
 		MaxBytes  int
-		MaxWait   time.Duration
 	}
 )
 
@@ -47,7 +45,7 @@ func (c *kafkaClient) SetOffset(offset int64) error {
 }
 
 func (c *kafkaClient) ReadMessage(ctx context.Context) (kafka2.Message, error) {
-	msg, err := c.reader.ReadMessage(ctx)
+	msg, err := c.reader.FetchMessage(ctx)
 	if err != nil {
 		return kafka2.Message{}, err
 	}
