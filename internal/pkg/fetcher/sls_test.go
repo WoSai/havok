@@ -27,7 +27,9 @@ func TestSLSFetcher_Apply(t *testing.T) {
 	f := NewSLSFetcher()
 	f.Apply(map[string]interface{}{
 		"concurrency": 1,
-		"endpoint":    "cn-hangzhou.log.aliyuncs.com",
+		"endpoint":    "xxx.aliyuncs.com",
+		"begin":       "2006-01-02 15:04:05",
+		"end":         "2006-01-02 15:04:05",
 	})
 }
 

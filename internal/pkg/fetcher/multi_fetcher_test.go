@@ -85,9 +85,9 @@ func TestMultiFetcher_Fetch(t *testing.T) {
 		// 断言log数量相等
 		assert.Equal(t, tc.expected, count)
 		// 断言log是有序的
-		for _, output := range outputs {
-			fmt.Println(output.OccurAt)
+		for range outputs {
 		}
+
 		assert.True(t, sort.SliceIsSorted(outputs, func(i, j int) bool {
 			return outputs[i].OccurAt.AsTime().Before(outputs[j].OccurAt.AsTime())
 		}))
@@ -267,13 +267,13 @@ func TestInsertSortedSlice(t *testing.T) {
 			},
 		},
 	} {
-		fmt.Println(tc.actual)
-
 		x := insertSortedLogs(tc.actual, tc.insert, func(i int) bool {
 			return tc.insert.OccurAt.AsTime().Before(tc.actual[i].OccurAt.AsTime())
 		})
 
-		fmt.Println(x)
+		assert.True(t, sort.SliceIsSorted(x, func(i, j int) bool {
+			return x[i].OccurAt.AsTime().Before(x[j].OccurAt.AsTime())
+		}))
 	}
 
 }
