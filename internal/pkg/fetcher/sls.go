@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -24,7 +24,8 @@ type (
 		begin   time.Time
 		end     time.Time
 		offset  int64
-		readed  int32
+		readed  chan struct{}
+		wg      sync.WaitGroup
 	}
 
 	SLSOption struct {
@@ -45,7 +46,9 @@ type (
 var lines int64 = 100 // sls GetLogLines 一页最大返回行数为100
 
 func NewSLSFetcher() plugin.Fetcher {
-	return &SLSFetcher{}
+	return &SLSFetcher{
+		readed: make(chan struct{}),
+	}
 }
 
 // Name Fetcher名称
@@ -90,9 +93,12 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 	sf.client = sls.CreateNormalInterface(sf.opt.Endpoint, sf.opt.AccessKeyId, sf.opt.AccessKeySecret, sf.opt.SecurityToken)
 
 	var rest = make(chan chan *pb.LogRecord, sf.opt.Concurrency)
+	defer sf.wg.Wait()
 	defer close(rest)
 
+	sf.wg.Add(1)
 	go func() {
+		defer sf.wg.Done()
 		defer close(output)
 		for ch := range rest {
 			for log := range ch {
@@ -107,30 +113,30 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		// 读完了
+		case <-sf.readed:
+			return nil
 		default:
 		}
-		// 读完了, 不再启动新的协程
-		if sf.isReaded() {
-			break
-		}
+
 		var ch = make(chan *pb.LogRecord, lines)
 		rest <- ch
+
+		sf.wg.Add(1)
 		go sf.read(ctx, offset, ch)
 		offset = offset + lines
 	}
-	return nil
 }
 
 func (sf *SLSFetcher) read(ctx context.Context, offset int64, ch chan<- *pb.LogRecord) {
+	defer sf.wg.Done()
 	defer close(ch)
 	if sf.client == nil || sf.decoder == nil {
 		logger.Logger.Error("sls client or decoder is nil")
 		return
 	}
-	var retry int = 3
 
-	for retry > 0 {
-		retry--
+	for retry := 0; retry < 3; retry++ {
 		logs, err := sf.client.GetLogLines(sf.opt.ProjectName, sf.opt.StoreName, sf.opt.Topic,
 			sf.begin.Unix(), sf.end.Unix(), sf.opt.Query, lines, offset, false)
 		if err != nil {
@@ -141,10 +147,6 @@ func (sf *SLSFetcher) read(ctx context.Context, offset int64, ch chan<- *pb.LogR
 		// 根据api文档，非Complete表示返回结果不完整，需要重新请求
 		if !logs.IsComplete() {
 			continue
-		}
-		// 读完了
-		if logs.Count < lines {
-			atomic.CompareAndSwapInt32(&sf.readed, 0, 1)
 		}
 
 		for _, line := range logs.Lines {
@@ -157,12 +159,16 @@ func (sf *SLSFetcher) read(ctx context.Context, offset int64, ch chan<- *pb.LogR
 				ch <- log
 			}
 		}
+		// 读完了
+		if logs.Count < lines {
+			// 无阻塞写
+			select {
+			case sf.readed <- struct{}{}:
+			default:
+			}
+		}
 		break
 	}
-}
-
-func (sf *SLSFetcher) isReaded() bool {
-	return atomic.LoadInt32(&sf.readed) == 1
 }
 
 func init() {

@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"container/list"
 	"context"
 	"fmt"
 	"math/rand"
@@ -54,7 +55,7 @@ func TestMultiFetcher_Fetch(t *testing.T) {
 			expected: 10,
 		},
 	} {
-		mf := &MultiFetcher{}
+		mf := &MultiFetcher{sortLogs: list.New()}
 		for i, num := range tc.actual {
 			ctl := gomock.NewController(t)
 			f := testing2.NewMockFetcher(ctl)
@@ -113,7 +114,7 @@ func (f *fakeFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 }
 
 func BenchmarkMultiFetcher_Fetch_1_fetcher(b *testing.B) {
-	mf := &MultiFetcher{}
+	mf := NewMultiFetcher().(*MultiFetcher)
 	mf.fetchers = append(mf.fetchers, &fakeFetcher{fetch: fetchFunc(1, -1)})
 
 	var (
@@ -139,7 +140,7 @@ func BenchmarkMultiFetcher_Fetch_1_fetcher(b *testing.B) {
 }
 
 func BenchmarkMultiFetcher_Fetch_5_fetcher(b *testing.B) {
-	mf := &MultiFetcher{}
+	mf := NewMultiFetcher().(*MultiFetcher)
 	for i := 0; i < 5; i++ {
 		mf.fetchers = append(mf.fetchers, &fakeFetcher{fetch: fetchFunc(i, -1)})
 	}
@@ -167,7 +168,7 @@ func BenchmarkMultiFetcher_Fetch_5_fetcher(b *testing.B) {
 }
 
 func BenchmarkMultiFetcher_Fetch_50_fetcher(b *testing.B) {
-	mf := &MultiFetcher{}
+	mf := NewMultiFetcher().(*MultiFetcher)
 	for i := 0; i < 50; i++ {
 		mf.fetchers = append(mf.fetchers, &fakeFetcher{fetch: fetchFunc(i, -1)})
 	}
@@ -199,7 +200,13 @@ func fetchFunc(id int, num int) func(ctx context.Context, output chan<- *pb.LogR
 	var second int64 = 1
 	var count int
 	return func(ctx context.Context, output chan<- *pb.LogRecord) error {
+		defer close(output)
 		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
 			if num >= 0 && count >= num {
 				break
 			}
@@ -211,7 +218,6 @@ func fetchFunc(id int, num int) func(ctx context.Context, output chan<- *pb.LogR
 			}
 			count++
 		}
-		close(output)
 		return nil
 	}
 }
@@ -255,25 +261,95 @@ func TestInsertSortedSlice(t *testing.T) {
 			},
 		},
 		{
+			name:   "",
+			actual: []*indexLog{},
+			insert: &indexLog{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 6}}},
+			expected: []*indexLog{
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 6}}},
+			},
+		},
+		{
 			name: "",
 			actual: []*indexLog{
 				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 19}}},
 			},
-			insert: &indexLog{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 12}}},
+			insert: &indexLog{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 20}}},
 			expected: []*indexLog{
-				{idx: 6},
-				{idx: 7},
-				{idx: 7},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 19}}},
+				{LogRecord: &pb.LogRecord{OccurAt: &timestamppb.Timestamp{Seconds: 20}}},
 			},
 		},
 	} {
-		x := insertSortedLogs(tc.actual, tc.insert, func(i int) bool {
-			return tc.insert.OccurAt.AsTime().Before(tc.actual[i].OccurAt.AsTime())
-		})
 
-		assert.True(t, sort.SliceIsSorted(x, func(i, j int) bool {
-			return x[i].OccurAt.AsTime().Before(x[j].OccurAt.AsTime())
+		logs := list.New()
+		for _, log := range tc.actual {
+			logs.PushBack(log)
+		}
+
+		insertSortedLogs(logs, tc.insert)
+
+		sortLogs := []*indexLog{}
+		for e := logs.Front(); e != nil; e = e.Next() {
+			sortLogs = append(sortLogs, e.Value.(*indexLog))
+		}
+
+		assert.True(t, sort.SliceIsSorted(sortLogs, func(i, j int) bool {
+			return sortLogs[i].OccurAt.AsTime().Before(sortLogs[j].OccurAt.AsTime())
 		}))
+		assert.Equal(t, sortLogs, tc.expected)
 	}
+}
 
+func BenchmarkInsertSortLogs(b *testing.B) {
+	x := list.New()
+	for i := 0; i < 5; i++ {
+		x.PushBack(&indexLog{LogRecord: &pb.LogRecord{
+			OccurAt: &timestamppb.Timestamp{Seconds: int64(i)},
+		}})
+	}
+	for i := 0; i < b.N; i++ {
+		insertSortedLogs(x, &indexLog{LogRecord: &pb.LogRecord{
+			OccurAt: &timestamppb.Timestamp{Seconds: rand.Int63n(5)},
+		}})
+		x.Remove(x.Back())
+	}
+}
+
+func TestChannel(t *testing.T) {
+	var errCh = make(chan struct{})
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(time.Second)
+		defer wg.Done()
+		for i := 0; i < 3; i++ {
+
+			select {
+			case errCh <- struct{}{}:
+				fmt.Println("put")
+			default:
+				fmt.Println(1)
+			}
+		}
+	}()
+	defer wg.Wait()
+
+	for {
+		select {
+		case err := <-errCh:
+			fmt.Println("error", err)
+			return
+		}
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+func TestName2(t *testing.T) {
+	var ch = make(chan struct{})
+
+	close(ch)
+
+	v := <-ch
+	fmt.Println(v)
 }

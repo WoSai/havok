@@ -37,7 +37,7 @@ type (
 
 		Begin     string `json:"begin" yaml:"begin" toml:"begin"`
 		End       string `json:"end" yaml:"end" toml:"end"`
-		Threshold int64  `json:"threshold" yaml:"threshold" toml:"threshold"`
+		Threshold int64  `json:"threshold" yaml:"threshold" toml:"threshold"` // 退出策略的阈值
 	}
 
 	Backoff func(record *pb.LogRecord) bool
@@ -100,12 +100,12 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 	if kf.decoder == nil {
 		return errors.New(kf.Name() + " decoder is nil")
 	}
-	defer kf.reader.Close()
 
 	err := kf.reader.SetOffset(kf.offset)
 	if err != nil {
 		return err
 	}
+	defer kf.reader.Close()
 
 	for {
 		select {
@@ -117,7 +117,7 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 		msg, err := kf.reader.ReadMessage(ctx)
 		if err != nil {
 			logger.Logger.Error("get kafka logs fail", zap.Error(err))
-			break
+			continue
 		}
 		log, err := kf.decoder.Decode(msg.Value)
 		if err != nil {
@@ -125,16 +125,30 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 			continue
 		}
 
-		if log.OccurAt.AsTime().Before(kf.begin) {
-			continue
+		if log.OccurAt.AsTime().After(kf.begin) && log.OccurAt.AsTime().Before(kf.end) {
+			output <- log
 		}
 
-		if log.OccurAt.AsTime().After(kf.end) {
+		if kf.genBackoff()(log) {
 			break
 		}
-		output <- log
 	}
 	return nil
+}
+
+func (kf *KafkaFetcher) genBackoff() Backoff {
+	// 连续 threshold 条日志超过时间窗口则认为已经读取结束
+	return func(record *pb.LogRecord) bool {
+		if record.OccurAt.AsTime().After(kf.end) {
+			kf.count++
+			if kf.count >= kf.threshold {
+				return true
+			}
+		} else {
+			kf.count = 0
+		}
+		return false
+	}
 }
 
 func init() {

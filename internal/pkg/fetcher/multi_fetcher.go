@@ -1,9 +1,11 @@
 package fetcher
 
 import (
+	"container/list"
 	"context"
 	"encoding/json"
 	"sort"
+	"sync"
 
 	iplugin "github.com/wosai/havok/internal/plugin"
 	"github.com/wosai/havok/logger"
@@ -14,10 +16,11 @@ import (
 
 type (
 	MultiFetcher struct {
+		wg        sync.WaitGroup
+		cancel    context.CancelFunc
 		fetchers  []plugin.Fetcher
 		rChannels []chan *pb.LogRecord
-		sortLogs  []*indexLog
-		cancel    context.CancelFunc
+		sortLogs  *list.List
 	}
 
 	MultiOption struct {
@@ -35,7 +38,7 @@ var _ plugin.Fetcher = (*MultiFetcher)(nil)
 func NewMultiFetcher() plugin.Fetcher {
 	return &MultiFetcher{
 		fetchers: []plugin.Fetcher{},
-		sortLogs: []*indexLog{},
+		sortLogs: list.New(),
 	}
 }
 
@@ -68,62 +71,51 @@ func (mf *MultiFetcher) WithDecoder(decoder plugin.LogDecoder) {
 
 func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
 	defer close(output)
-	mf.readFetchers(ctx)
-	defer mf.cancelReadFetchers()
 
-	mf.prepareSortLogs()
-	err := mf.loop(ctx, output)
-	return err
-}
-
-func (mf *MultiFetcher) readFetchers(ctx context.Context) {
 	mf.rChannels = make([]chan *pb.LogRecord, len(mf.fetchers))
 	cancelCtx, cancel := context.WithCancel(ctx)
 	mf.cancel = cancel
 
+	var fetchError = make(chan error, len(mf.fetchers))
+
+	mf.wg.Add(len(mf.fetchers))
 	for i, _ := range mf.fetchers {
 		ch := make(chan *pb.LogRecord, 10)
 		mf.rChannels[i] = ch
 
 		go func(ctx context.Context, i int) {
+			defer mf.wg.Done()
 			err := mf.fetchers[i].Fetch(ctx, mf.rChannels[i])
 			if err != nil {
 				logger.Logger.Error("sub fetcher Fetch fail", zap.String("name", mf.fetchers[i].Name()), zap.Error(err))
+				select {
+				case fetchError <- err:
+					// If somebody receive fetchError, let other know the error occurred.
+				default:
+					//don't block
+				}
 			}
 		}(cancelCtx, i)
 	}
-}
 
-func (mf *MultiFetcher) prepareSortLogs() {
-	for i, subCh := range mf.rChannels {
-		val, ok := <-subCh
-		if ok {
-			mf.sortLogs = append(mf.sortLogs, &indexLog{
-				LogRecord: val,
-				idx:       i,
-			})
-		}
-	}
-	sort.Slice(mf.sortLogs, func(i, j int) bool {
-		return mf.sortLogs[i].OccurAt.AsTime().Before(mf.sortLogs[j].OccurAt.AsTime())
-	})
-}
+	defer mf.cancelReadFetchers()
 
-// read from multi fetcher --> sort logs --> write into channel
-func (mf *MultiFetcher) loop(ctx context.Context, output chan<- *pb.LogRecord) error {
+	mf.prepareSortLogs()
 
-	for {
-		// exit when all logs are read
-		if len(mf.sortLogs) == 0 {
-			return nil
-		}
+	for mf.sortLogs.Len() > 0 {
 
-		minLog := mf.sortLogs[0]
+		elem := mf.sortLogs.Front()
+		mf.sortLogs.Remove(elem)
+
+		minLog := elem.Value.(*indexLog)
 		output <- minLog.LogRecord
 		minIdx := minLog.idx
-		mf.sortLogs = mf.sortLogs[1:]
 
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-fetchError:
+			return err
 		case c, ok := <-mf.rChannels[minIdx]:
 			if !ok {
 				continue
@@ -133,30 +125,47 @@ func (mf *MultiFetcher) loop(ctx context.Context, output chan<- *pb.LogRecord) e
 				LogRecord: c,
 				idx:       minIdx,
 			}
-			mf.sortLogs = insertSortedLogs(mf.sortLogs, log, func(i int) bool {
-				return log.OccurAt.AsTime().Before(mf.sortLogs[i].OccurAt.AsTime())
+			insertSortedLogs(mf.sortLogs, log)
+		}
+	}
+	return nil
+}
+
+func (mf *MultiFetcher) prepareSortLogs() {
+	var logs = []*indexLog{}
+	for i, subCh := range mf.rChannels {
+		val, ok := <-subCh
+		if ok {
+			logs = append(logs, &indexLog{
+				LogRecord: val,
+				idx:       i,
 			})
 		}
+	}
+	sort.Slice(logs, func(i, j int) bool {
+		return logs[i].OccurAt.AsTime().Before(logs[j].OccurAt.AsTime())
+	})
+
+	for _, log := range logs {
+		mf.sortLogs.PushBack(log)
 	}
 }
 
 func (mf *MultiFetcher) cancelReadFetchers() {
 	mf.cancel()
+	mf.wg.Wait()
 }
 
 func init() {
 	iplugin.Register(NewMultiFetcher())
 }
 
-func insertSortedLogs(x []*indexLog, log *indexLog, insert func(i int) bool) []*indexLog {
-	for i := 0; i < len(x); i++ {
-		if insert(i) {
-			x = append(x, log)
-			copy(x[i+1:], x[i:])
-			x[i] = log
-
-			return x
+func insertSortedLogs(x *list.List, log *indexLog) {
+	for e := x.Front(); e != nil; e = e.Next() {
+		if log.OccurAt.AsTime().Before(e.Value.(*indexLog).OccurAt.AsTime()) {
+			x.InsertBefore(log, e)
+			return
 		}
 	}
-	return append(x, log)
+	x.PushBack(log)
 }
