@@ -16,13 +16,12 @@ import (
 
 type (
 	KafkaFetcher struct {
-		decoder   plugin.LogDecoder
-		reader    *kafka.Reader
-		begin     time.Time
-		end       time.Time
-		threshold int64
-		count     int64
-		offset    int64
+		decoder plugin.LogDecoder
+		reader  *kafka.Reader
+		begin   time.Time
+		end     time.Time
+		count   int64
+		offset  int64
 	}
 
 	KafkaReaderFunc func(option *KafkaOption) (kafka.Reader, error)
@@ -35,12 +34,9 @@ type (
 		MaxBytes  int      `json:"max_bytes" yaml:"max_bytes" toml:"max_bytes"`
 		Offset    int64    `json:"offset" yaml:"offset" toml:"offset"`
 
-		Begin     string `json:"begin" yaml:"begin" toml:"begin"`
-		End       string `json:"end" yaml:"end" toml:"end"`
-		Threshold int64  `json:"threshold" yaml:"threshold" toml:"threshold"` // 退出策略的阈值
+		Begin string `json:"begin" yaml:"begin" toml:"begin"`
+		End   string `json:"end" yaml:"end" toml:"end"`
 	}
-
-	Backoff func(record *pb.LogRecord) bool
 )
 
 var _ plugin.Fetcher = (*KafkaFetcher)(nil)
@@ -71,7 +67,6 @@ func (kf *KafkaFetcher) Apply(opt any) {
 
 	kf.begin = ParseTime(option.Begin)
 	kf.end = ParseTime(option.End)
-	kf.threshold = option.Threshold
 	kf.offset = option.Offset
 
 	config := kafka.ReaderConfig{
@@ -126,26 +121,6 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 			case output <- log:
 			}
 		}
-
-		if kf.genBackoff()(log) {
-			break
-		}
-	}
-	return nil
-}
-
-func (kf *KafkaFetcher) genBackoff() Backoff {
-	// 连续 threshold 条日志超过时间窗口则认为已经读取结束
-	return func(record *pb.LogRecord) bool {
-		if record.OccurAt.AsTime().After(kf.end) {
-			kf.count++
-			if kf.count >= kf.threshold {
-				return true
-			}
-		} else {
-			kf.count = 0
-		}
-		return false
 	}
 }
 

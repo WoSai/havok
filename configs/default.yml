@@ -16,6 +16,5 @@ plugin:
       topic: "default_topic"
       min_bytes: 10e3
       max_bytes: 10e6
-      threshold: 100
       begin: "2006-01-02 15:04:05"
       end: "2006-01-02 15:04:05"
