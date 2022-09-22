@@ -29,17 +29,17 @@ type (
 	}
 
 	SLSOption struct {
-		Endpoint        string `json:"endpoint"`
-		AccessKeyId     string `json:"access_key_id"`
-		AccessKeySecret string `json:"access_key_secret"`
-		SecurityToken   string `json:"security_token"`
-		ProjectName     string `json:"project_name"`
-		StoreName       string `json:"store_name"`
-		Topic           string `json:"topic"`
-		Begin           string `json:"begin"`
-		End             string `json:"end"`
-		Query           string `json:"query"`
-		Concurrency     int64  `json:"concurrency"`
+		Endpoint        string `json:"endpoint" yaml:"endpoint" toml:"fetchers"`
+		AccessKeyId     string `json:"access_key_id" yaml:"access_key_id" toml:"access_key_id"`
+		AccessKeySecret string `json:"access_key_secret" yaml:"access_key_secret" toml:"access_key_secret"`
+		SecurityToken   string `json:"security_token" yaml:"security_token" toml:"security_token"`
+		ProjectName     string `json:"project_name" yaml:"project_name" toml:"project_name"`
+		StoreName       string `json:"store_name" yaml:"store_name" toml:"store_name"`
+		Topic           string `json:"topic" yaml:"topic" toml:"topic"`
+		Begin           string `json:"begin" yaml:"begin" toml:"begin"`
+		End             string `json:"end" yaml:"end" toml:"end"`
+		Query           string `json:"query" yaml:"query" toml:"query"`
+		Concurrency     int64  `json:"concurrency" yaml:"concurrency" toml:"concurrency"`
 	}
 )
 
@@ -47,7 +47,7 @@ var lines int64 = 100 // sls GetLogLines 一页最大返回行数为100
 
 func NewSLSFetcher() plugin.Fetcher {
 	return &SLSFetcher{
-		readed: make(chan struct{}),
+		readed: make(chan struct{}, 1),
 	}
 }
 
@@ -63,7 +63,7 @@ func (sf *SLSFetcher) Apply(opt any) {
 		panic(err)
 	}
 
-	var option = &SLSOption{Concurrency: 100}
+	var option = new(SLSOption)
 
 	err = json.Unmarshal(b, option)
 	if err != nil {
@@ -102,7 +102,11 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 		defer close(output)
 		for ch := range rest {
 			for log := range ch {
-				output <- log
+				select {
+				case output <- log:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
 	}()
@@ -110,21 +114,18 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 	var offset int64 = 0
 
 	for {
+		var ch = make(chan *pb.LogRecord, lines)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		// 读完了
 		case <-sf.readed:
 			return nil
-		default:
+		case rest <- ch:
+			sf.wg.Add(1)
+			go sf.read(ctx, offset, ch)
+			offset = offset + lines
 		}
-
-		var ch = make(chan *pb.LogRecord, lines)
-		rest <- ch
-
-		sf.wg.Add(1)
-		go sf.read(ctx, offset, ch)
-		offset = offset + lines
 	}
 }
 
@@ -161,10 +162,10 @@ func (sf *SLSFetcher) read(ctx context.Context, offset int64, ch chan<- *pb.LogR
 		}
 		// 读完了
 		if logs.Count < lines {
-			// 无阻塞写
 			select {
 			case sf.readed <- struct{}{}:
 			default:
+				// don't block
 			}
 		}
 		break

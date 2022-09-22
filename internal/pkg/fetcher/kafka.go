@@ -61,7 +61,7 @@ func (kf *KafkaFetcher) Apply(opt any) {
 		panic(err)
 	}
 
-	var option = &KafkaOption{MinBytes: 10e3, MaxBytes: 10e6, Threshold: 100}
+	var option = new(KafkaOption)
 
 	err = json.Unmarshal(b, option)
 	if err != nil {
@@ -108,12 +108,6 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 	defer kf.reader.Close()
 
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
 		msg, err := kf.reader.ReadMessage(ctx)
 		if err != nil {
 			logger.Logger.Error("get kafka logs fail", zap.Error(err))
@@ -126,7 +120,11 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 		}
 
 		if log.OccurAt.AsTime().After(kf.begin) && log.OccurAt.AsTime().Before(kf.end) {
-			output <- log
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case output <- log:
+			}
 		}
 
 		if kf.genBackoff()(log) {

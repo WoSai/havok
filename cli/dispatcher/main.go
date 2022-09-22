@@ -12,6 +12,9 @@ import (
 	"github.com/wosai/havok/apollo"
 	"github.com/wosai/havok/dispatcher"
 	"github.com/wosai/havok/dispatcher/helper"
+	_ "github.com/wosai/havok/internal/pkg/fetcher"
+	"github.com/wosai/havok/internal/pkg/option"
+	"github.com/wosai/havok/internal/plugin"
 	pb "github.com/wosai/havok/pkg/genproto"
 	"go.uber.org/zap"
 )
@@ -109,6 +112,21 @@ func handle(mux *http.ServeMux, p dispatcher.Provider) {
 }
 
 func main() {
+	confNew := option.Load()
+
+	values, err := confNew.Value("plugin").Map()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, v := range values {
+		opt := new(plugin.LoadOption)
+		if err := v.Scan(opt); err != nil {
+			panic(err)
+		}
+		plugin.LoadPlugins(*opt)
+	}
+
 	flag.Parse()
 
 	// 加载配置文件

@@ -1,0 +1,21 @@
+plugin:
+  sls-fetcher:
+    name: sls-fetcher
+    type: builtin
+    args:
+      concurrency: 100
+      begin: "2006-01-02 15:04:05"
+      end: "2006-01-02 15:04:05"
+
+  kafka-fetcher:
+    name: kafka-fetcher
+    type: builtin
+    args:
+      brokers:
+        - localhost:9092
+      topic: "default_topic"
+      min_bytes: 10e3
+      max_bytes: 10e6
+      threshold: 100
+      begin: "2006-01-02 15:04:05"
+      end: "2006-01-02 15:04:05"

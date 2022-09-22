@@ -52,12 +52,16 @@ func (mf *MultiFetcher) Apply(opt any) {
 		panic(err)
 	}
 
-	var option = MultiOption{}
-	err = json.Unmarshal(b, &option)
+	var option = new(MultiOption)
+	err = json.Unmarshal(b, option)
 	if err != nil {
 		panic(err)
 	}
 	logger.Logger.Info("apply fetcher config", zap.String("name", mf.Name()), zap.Any("config", option))
+
+	if len(option.Fetchers) == 0 {
+		panic(mf.Name() + " invalid option: " + "fetchers not be empty")
+	}
 
 	for _, cfg := range option.Fetchers {
 		f := iplugin.LookupFetcher(cfg)
@@ -80,7 +84,7 @@ func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 
 	mf.wg.Add(len(mf.fetchers))
 	for i, _ := range mf.fetchers {
-		ch := make(chan *pb.LogRecord, 10)
+		ch := make(chan *pb.LogRecord, 100)
 		mf.rChannels[i] = ch
 
 		go func(ctx context.Context, i int) {
@@ -88,12 +92,7 @@ func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 			err := mf.fetchers[i].Fetch(ctx, mf.rChannels[i])
 			if err != nil {
 				logger.Logger.Error("sub fetcher Fetch fail", zap.String("name", mf.fetchers[i].Name()), zap.Error(err))
-				select {
-				case fetchError <- err:
-					// If somebody receive fetchError, let other know the error occurred.
-				default:
-					//don't block
-				}
+				fetchError <- err
 			}
 		}(cancelCtx, i)
 	}

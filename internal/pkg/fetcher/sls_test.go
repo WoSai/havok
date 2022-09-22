@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"context"
 	"testing"
 
 	pb "github.com/wosai/havok/pkg/genproto"
@@ -36,4 +37,12 @@ func TestSLSFetcher_Apply(t *testing.T) {
 func TestSLSFetcher_WithDecoder(t *testing.T) {
 	f := NewSLSFetcher()
 	f.WithDecoder(&testDecoder{})
+}
+
+func TestSLSFetcher_Fetch(t *testing.T) {
+	var ctx = context.Background()
+	var output = make(chan *pb.LogRecord, 100)
+
+	f := NewSLSFetcher()
+	f.Fetch(ctx, output)
 }
