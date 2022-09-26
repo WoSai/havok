@@ -106,11 +106,11 @@ func (kf *kafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 	var kfkError = make(chan error, len(kf.clients))
 	var mergeError = make(chan error, 1)
 
-	kf.wg.Add(len(kf.clients))
 	for i, _ := range kf.clients {
 		ch := make(chan *pb.LogRecord, 100)
 		kf.merge.Merge(ch)
 
+		kf.wg.Add(1)
 		go func(ctx context.Context, i int, ch chan *pb.LogRecord) {
 			defer kf.wg.Done()
 			err := kf.clients[i].Fetch(ctx, ch)

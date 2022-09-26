@@ -81,11 +81,11 @@ func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 	var fetchError = make(chan error, len(mf.fetchers))
 	var mergeError = make(chan error, 1)
 
-	mf.wg.Add(len(mf.fetchers))
 	for i, _ := range mf.fetchers {
 		ch := make(chan *pb.LogRecord, 100)
 		mf.mergeSrv.Merge(ch)
 
+		mf.wg.Add(1)
 		go func(ctx context.Context, i int, ch chan *pb.LogRecord) {
 			defer mf.wg.Done()
 			err := mf.fetchers[i].Fetch(ctx, ch)
