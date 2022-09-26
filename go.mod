@@ -20,9 +20,6 @@ require (
 )
 
 require (
-	git.wosai-inc.com/middleware/sqb-vault-sdk-go v1.0.1 // indirect
-	git.wosai-inc.com/middleware/sqb-vault-sdk-go/instrumentation/sls v0.1.0 // indirect
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1730 // indirect
 	github.com/armon/go-metrics v0.3.9 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
