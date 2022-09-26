@@ -93,7 +93,6 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 	sf.client = sls.CreateNormalInterface(sf.opt.Endpoint, sf.opt.AccessKeyId, sf.opt.AccessKeySecret, sf.opt.SecurityToken)
 
 	var rest = make(chan chan *pb.LogRecord, sf.opt.Concurrency)
-	defer sf.wg.Wait()
 	defer close(rest)
 
 	sf.wg.Add(1)
@@ -120,6 +119,7 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 			return ctx.Err()
 		// 读完了
 		case <-sf.readed:
+			sf.wg.Wait()
 			return nil
 		case rest <- ch:
 			sf.wg.Add(1)
@@ -150,6 +150,7 @@ func (sf *SLSFetcher) read(ctx context.Context, offset int64, ch chan<- *pb.LogR
 			continue
 		}
 
+		var bx = make([]*pb.LogRecord, lines)
 		for _, line := range logs.Lines {
 			log, err := sf.decoder.Decode(line)
 			if err != nil {
@@ -157,9 +158,14 @@ func (sf *SLSFetcher) read(ctx context.Context, offset int64, ch chan<- *pb.LogR
 				continue
 			}
 			if sf.begin.Before(log.OccurAt.AsTime()) && sf.end.After(log.OccurAt.AsTime()) {
-				ch <- log
+				bx = append(bx, log)
 			}
 		}
+		sortLogRecords(bx)
+		for _, lr := range bx {
+			ch <- lr
+		}
+
 		// 读完了
 		if logs.Count < lines {
 			select {

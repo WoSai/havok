@@ -1,10 +1,8 @@
 package fetcher
 
 import (
-	"container/list"
 	"context"
 	"encoding/json"
-	"sort"
 	"sync"
 
 	iplugin "github.com/wosai/havok/internal/plugin"
@@ -16,11 +14,10 @@ import (
 
 type (
 	MultiFetcher struct {
-		wg        sync.WaitGroup
-		cancel    context.CancelFunc
-		fetchers  []plugin.Fetcher
-		rChannels []chan *pb.LogRecord
-		sortLogs  *list.List
+		wg       sync.WaitGroup
+		cancel   context.CancelFunc
+		fetchers []plugin.Fetcher
+		mergeSrv mergeService
 	}
 
 	MultiOption struct {
@@ -35,10 +32,10 @@ type (
 
 var _ plugin.Fetcher = (*MultiFetcher)(nil)
 
-func NewMultiFetcher() plugin.Fetcher {
+func NewMultiFetcher(merge mergeService) plugin.Fetcher {
 	return &MultiFetcher{
 		fetchers: []plugin.Fetcher{},
-		sortLogs: list.New(),
+		mergeSrv: merge,
 	}
 }
 
@@ -65,8 +62,12 @@ func (mf *MultiFetcher) Apply(opt any) {
 
 	for _, cfg := range option.Fetchers {
 		f := iplugin.LookupFetcher(cfg)
-		mf.fetchers = append(mf.fetchers, f)
+		mf.WithFetcher(f)
 	}
+}
+
+func (mf *MultiFetcher) WithFetcher(f ...plugin.Fetcher) {
+	mf.fetchers = append(mf.fetchers, f...)
 }
 
 func (mf *MultiFetcher) WithDecoder(decoder plugin.LogDecoder) {
@@ -74,97 +75,56 @@ func (mf *MultiFetcher) WithDecoder(decoder plugin.LogDecoder) {
 }
 
 func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
-	defer close(output)
-
-	mf.rChannels = make([]chan *pb.LogRecord, len(mf.fetchers))
-	cancelCtx, cancel := context.WithCancel(ctx)
+	subCtx, cancel := context.WithCancel(ctx)
 	mf.cancel = cancel
 
 	var fetchError = make(chan error, len(mf.fetchers))
+	var mergeError = make(chan error, 1)
 
 	mf.wg.Add(len(mf.fetchers))
 	for i, _ := range mf.fetchers {
 		ch := make(chan *pb.LogRecord, 100)
-		mf.rChannels[i] = ch
+		mf.mergeSrv.Merge(ch)
 
-		go func(ctx context.Context, i int) {
+		go func(ctx context.Context, i int, ch chan *pb.LogRecord) {
 			defer mf.wg.Done()
-			err := mf.fetchers[i].Fetch(ctx, mf.rChannels[i])
+			err := mf.fetchers[i].Fetch(ctx, ch)
 			if err != nil {
 				logger.Logger.Error("sub fetcher Fetch fail", zap.String("name", mf.fetchers[i].Name()), zap.Error(err))
 				fetchError <- err
 			}
-		}(cancelCtx, i)
+		}(subCtx, i, ch)
 	}
 
-	defer mf.cancelReadFetchers()
+	mf.wg.Add(1)
+	go func() {
+		defer mf.wg.Done()
+		err := mf.mergeSrv.Output(subCtx, output)
+		if err != nil {
+			logger.Logger.Error("merge service fail", zap.Error(err))
+		}
+		mergeError <- err
+	}()
 
-	mf.prepareSortLogs()
-
-	for mf.sortLogs.Len() > 0 {
-
-		elem := mf.sortLogs.Front()
-		mf.sortLogs.Remove(elem)
-
-		minLog := elem.Value.(*indexLog)
-		output <- minLog.LogRecord
-		minIdx := minLog.idx
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case err := <-fetchError:
+	select {
+	case <-ctx.Done():
+		mf.wg.Wait()
+		return ctx.Err()
+	case err := <-fetchError:
+		mf.cancel()
+		mf.wg.Wait()
+		return err
+	case err := <-mergeError:
+		if err != nil {
+			mf.cancel()
+			mf.wg.Wait()
 			return err
-		case c, ok := <-mf.rChannels[minIdx]:
-			if !ok {
-				continue
-			}
-
-			log := &indexLog{
-				LogRecord: c,
-				idx:       minIdx,
-			}
-			insertSortedLogs(mf.sortLogs, log)
 		}
+		mf.wg.Wait()
+		return nil
 	}
-	return nil
-}
-
-func (mf *MultiFetcher) prepareSortLogs() {
-	var logs = []*indexLog{}
-	for i, subCh := range mf.rChannels {
-		val, ok := <-subCh
-		if ok {
-			logs = append(logs, &indexLog{
-				LogRecord: val,
-				idx:       i,
-			})
-		}
-	}
-	sort.Slice(logs, func(i, j int) bool {
-		return logs[i].OccurAt.AsTime().Before(logs[j].OccurAt.AsTime())
-	})
-
-	for _, log := range logs {
-		mf.sortLogs.PushBack(log)
-	}
-}
-
-func (mf *MultiFetcher) cancelReadFetchers() {
-	mf.cancel()
-	mf.wg.Wait()
 }
 
 func init() {
-	iplugin.Register(NewMultiFetcher())
-}
-
-func insertSortedLogs(x *list.List, log *indexLog) {
-	for e := x.Front(); e != nil; e = e.Next() {
-		if log.OccurAt.AsTime().Before(e.Value.(*indexLog).OccurAt.AsTime()) {
-			x.InsertBefore(log, e)
-			return
-		}
-	}
-	x.PushBack(log)
+	iplugin.Register(NewMultiFetcher(newMergeService()))
 }

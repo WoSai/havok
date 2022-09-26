@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -15,7 +16,16 @@ import (
 )
 
 type (
-	KafkaFetcher struct {
+	kafkaFetcher struct {
+		wg      sync.WaitGroup
+		cancel  context.CancelFunc
+		merge   mergeService
+		clients []*KafkaClient
+		begin   time.Time
+		end     time.Time
+	}
+
+	KafkaClient struct {
 		decoder plugin.LogDecoder
 		reader  *kafka.Reader
 		begin   time.Time
@@ -24,34 +34,37 @@ type (
 		offset  int64
 	}
 
-	KafkaReaderFunc func(option *KafkaOption) (kafka.Reader, error)
-
 	KafkaOption struct {
+		Kafka []*KafkaClientOption `json:"kafka" yaml:"kafka" toml:"kafka"`
+		Begin string               `json:"begin" yaml:"begin" toml:"begin"`
+		End   string               `json:"end" yaml:"end" toml:"end"`
+	}
+
+	KafkaClientOption struct {
 		Brokers   []string `json:"brokers" yaml:"brokers" toml:"brokers"`
 		Topic     string   `json:"topic" yaml:"topic" toml:"topic"`
 		Partition int      `json:"partition" yaml:"partition" toml:"partition"`
 		MinBytes  int      `json:"min_bytes" yaml:"min_bytes" toml:"min_bytes"`
 		MaxBytes  int      `json:"max_bytes" yaml:"max_bytes" toml:"max_bytes"`
 		Offset    int64    `json:"offset" yaml:"offset" toml:"offset"`
-
-		Begin string `json:"begin" yaml:"begin" toml:"begin"`
-		End   string `json:"end" yaml:"end" toml:"end"`
 	}
 )
 
-var _ plugin.Fetcher = (*KafkaFetcher)(nil)
+var _ plugin.Fetcher = (*kafkaFetcher)(nil)
 
-func NewKafkaFetcher() plugin.Fetcher {
-	return &KafkaFetcher{}
+func NewKafkaFetcher(merge mergeService) plugin.Fetcher {
+	return &kafkaFetcher{
+		merge: merge,
+	}
 }
 
 // Name Fetcher名称
-func (kf *KafkaFetcher) Name() string {
+func (kf *kafkaFetcher) Name() string {
 	return "kafka-fetcher"
 }
 
 // Apply 传入Fetcher的运行参数
-func (kf *KafkaFetcher) Apply(opt any) {
+func (kf *kafkaFetcher) Apply(opt any) {
 	b, err := json.Marshal(opt)
 	if err != nil {
 		panic(err)
@@ -67,33 +80,108 @@ func (kf *KafkaFetcher) Apply(opt any) {
 
 	kf.begin = ParseTime(option.Begin)
 	kf.end = ParseTime(option.End)
-	kf.offset = option.Offset
-
-	config := kafka.ReaderConfig{
-		Brokers:   option.Brokers,
-		Topic:     option.Topic,
-		Partition: option.Partition,
-		MinBytes:  option.MinBytes,
-		MaxBytes:  option.MaxBytes,
+	for _, opt := range option.Kafka {
+		cli, err := newKafkaClient(opt, kf.begin, kf.end)
+		if err != nil {
+			panic(err)
+		}
+		kf.clients = append(kf.clients, cli)
 	}
-
-	err = config.Validate()
-	if err != nil {
-		panic(err)
-	}
-
-	kf.reader = kafka.NewReader(config)
 }
 
 // WithDecoder 定义了日志解析对象
-func (kf *KafkaFetcher) WithDecoder(decoder plugin.LogDecoder) {
+func (kf *kafkaFetcher) WithDecoder(decoder plugin.LogDecoder) {
+	for _, cli := range kf.clients {
+		cli.WithDecoder(decoder)
+	}
+}
+
+func (kf *kafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
+	if len(kf.clients) == 0 {
+		return errors.New("invalid option: kafka clients is empty")
+	}
+	subCtx, cancel := context.WithCancel(ctx)
+	kf.cancel = cancel
+
+	var kfkError = make(chan error, len(kf.clients))
+	var mergeError = make(chan error, 1)
+
+	kf.wg.Add(len(kf.clients))
+	for i, _ := range kf.clients {
+		ch := make(chan *pb.LogRecord, 100)
+		kf.merge.Merge(ch)
+
+		go func(ctx context.Context, i int, ch chan *pb.LogRecord) {
+			defer kf.wg.Done()
+			err := kf.clients[i].Fetch(ctx, ch)
+			if err != nil {
+				logger.Logger.Error("kafka client Fetch fail", zap.Error(err))
+				kfkError <- err
+			}
+		}(subCtx, i, ch)
+	}
+
+	kf.wg.Add(1)
+	go func() {
+		defer kf.wg.Done()
+		err := kf.merge.Output(subCtx, output)
+		if err != nil {
+			logger.Logger.Error("merge service fail", zap.Error(err))
+		}
+		mergeError <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		kf.wg.Wait()
+		return ctx.Err()
+	case err := <-kfkError:
+		kf.cancel()
+		kf.wg.Wait()
+		return err
+	case err := <-mergeError:
+		if err != nil {
+			kf.cancel()
+			kf.wg.Wait()
+			return err
+		}
+		kf.wg.Wait()
+		return nil
+	}
+}
+
+func newKafkaClient(opt *KafkaClientOption, begin, end time.Time) (*KafkaClient, error) {
+	kf := &KafkaClient{}
+	kf.begin = begin
+	kf.end = end
+	kf.offset = opt.Offset
+
+	config := kafka.ReaderConfig{
+		Brokers:   opt.Brokers,
+		Topic:     opt.Topic,
+		Partition: opt.Partition,
+		MinBytes:  opt.MinBytes,
+		MaxBytes:  opt.MaxBytes,
+	}
+
+	err := config.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	kf.reader = kafka.NewReader(config)
+	return kf, err
+}
+
+// WithDecoder 定义了日志解析对象
+func (kf *KafkaClient) WithDecoder(decoder plugin.LogDecoder) {
 	kf.decoder = decoder
 }
 
-func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
+func (kf *KafkaClient) Fetch(ctx context.Context, output chan<- *pb.LogRecord) error {
 	defer close(output)
 	if kf.decoder == nil {
-		return errors.New(kf.Name() + " decoder is nil")
+		return errors.New("decoder is nil")
 	}
 
 	err := kf.reader.SetOffset(kf.offset)
@@ -105,12 +193,12 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 	for {
 		msg, err := kf.reader.ReadMessage(ctx)
 		if err != nil {
-			logger.Logger.Error("get kafka logs fail", zap.Error(err))
-			continue
+			logger.Logger.Error("reade kafka message fail", zap.Error(err))
+			return err
 		}
 		log, err := kf.decoder.Decode(msg.Value)
 		if err != nil {
-			logger.Logger.Error("decode kafka log fail", zap.Error(err))
+			logger.Logger.Error("decode kafka message fail", zap.Error(err))
 			continue
 		}
 
@@ -125,5 +213,5 @@ func (kf *KafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 }
 
 func init() {
-	iplugin.Register(NewKafkaFetcher())
+	iplugin.Register(NewKafkaFetcher(newMergeService()))
 }

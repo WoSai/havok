@@ -102,7 +102,7 @@ func TestMultiFetcher_Fetch(t *testing.T) {
 			returnErr: io.ErrUnexpectedEOF,
 		},
 	} {
-		mf := &MultiFetcher{sortLogs: list.New()}
+		mf := &MultiFetcher{mergeSrv: newMergeService()}
 		for i, log := range tc.actual {
 			ctl := gomock.NewController(t)
 			f := testing2.NewMockFetcher(ctl)
@@ -143,7 +143,7 @@ func TestMultiFetcher_Fetch(t *testing.T) {
 }
 
 func BenchmarkMultiFetcher_Fetch_1_fetcher(b *testing.B) {
-	mf := NewMultiFetcher().(*MultiFetcher)
+	mf := NewMultiFetcher(newMergeService()).(*MultiFetcher)
 	mf.fetchers = append(mf.fetchers, &fakeFetcher{fetch: fetchFunc(1, -1, nil)})
 
 	var (
@@ -169,7 +169,7 @@ func BenchmarkMultiFetcher_Fetch_1_fetcher(b *testing.B) {
 }
 
 func BenchmarkMultiFetcher_Fetch_5_fetcher(b *testing.B) {
-	mf := NewMultiFetcher().(*MultiFetcher)
+	mf := NewMultiFetcher(newMergeService()).(*MultiFetcher)
 	for i := 0; i < 5; i++ {
 		mf.fetchers = append(mf.fetchers, &fakeFetcher{fetch: fetchFunc(i, -1, nil)})
 	}
@@ -197,7 +197,7 @@ func BenchmarkMultiFetcher_Fetch_5_fetcher(b *testing.B) {
 }
 
 func BenchmarkMultiFetcher_Fetch_50_fetcher(b *testing.B) {
-	mf := NewMultiFetcher().(*MultiFetcher)
+	mf := NewMultiFetcher(newMergeService()).(*MultiFetcher)
 	for i := 0; i < 50; i++ {
 		mf.fetchers = append(mf.fetchers, &fakeFetcher{fetch: fetchFunc(i, -1, nil)})
 	}
