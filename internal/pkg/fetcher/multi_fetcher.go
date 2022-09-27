@@ -79,7 +79,7 @@ func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 	mf.cancel = cancel
 
 	var fetchError = make(chan error, len(mf.fetchers))
-	var mergeError = make(chan error, 1)
+	var mergeSignal = make(chan error, 1)
 
 	for i, _ := range mf.fetchers {
 		ch := make(chan *pb.LogRecord, 100)
@@ -100,10 +100,7 @@ func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 	go func() {
 		defer mf.wg.Done()
 		err := mf.mergeSrv.Output(subCtx, output)
-		if err != nil {
-			logger.Logger.Error("merge service fail", zap.Error(err))
-		}
-		mergeError <- err
+		mergeSignal <- err
 	}()
 
 	select {
@@ -114,8 +111,9 @@ func (mf *MultiFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 		mf.cancel()
 		mf.wg.Wait()
 		return err
-	case err := <-mergeError:
+	case err := <-mergeSignal:
 		if err != nil {
+			logger.Logger.Error("merge service fail", zap.Error(err))
 			mf.cancel()
 			mf.wg.Wait()
 			return err

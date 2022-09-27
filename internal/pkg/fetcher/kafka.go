@@ -104,7 +104,7 @@ func (kf *kafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 	kf.cancel = cancel
 
 	var kfkError = make(chan error, len(kf.clients))
-	var mergeError = make(chan error, 1)
+	var mergeSignal = make(chan error, 1)
 
 	for i, _ := range kf.clients {
 		ch := make(chan *pb.LogRecord, 100)
@@ -128,7 +128,7 @@ func (kf *kafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 		if err != nil {
 			logger.Logger.Error("merge service fail", zap.Error(err))
 		}
-		mergeError <- err
+		mergeSignal <- err
 	}()
 
 	select {
@@ -139,7 +139,7 @@ func (kf *kafkaFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) 
 		kf.cancel()
 		kf.wg.Wait()
 		return err
-	case err := <-mergeError:
+	case err := <-mergeSignal:
 		if err != nil {
 			kf.cancel()
 			kf.wg.Wait()

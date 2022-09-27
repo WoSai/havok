@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -113,7 +112,7 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 	sf.cancel = cancel
 
 	var slsError = make(chan error, len(sf.clients))
-	var mergeError = make(chan error, 1)
+	var mergeSignal = make(chan error, 1)
 
 	for i, _ := range sf.clients {
 		ch := make(chan *pb.LogRecord, 100)
@@ -137,8 +136,7 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 		if err != nil {
 			logger.Logger.Error("merge service fail", zap.Error(err))
 		}
-		mergeError <- err
-		fmt.Println("mergeError")
+		mergeSignal <- err
 	}()
 
 	select {
@@ -146,13 +144,10 @@ func (sf *SLSFetcher) Fetch(ctx context.Context, output chan<- *pb.LogRecord) er
 		sf.wg.Wait()
 		return ctx.Err()
 	case err := <-slsError:
-		fmt.Println(1)
 		sf.cancel()
-		fmt.Println(2)
 		sf.wg.Wait()
-		fmt.Println(3)
 		return err
-	case err := <-mergeError:
+	case err := <-mergeSignal:
 		if err != nil {
 			sf.cancel()
 			sf.wg.Wait()
@@ -212,6 +207,7 @@ func (sf *SLSClient) Fetch(ctx context.Context, output chan<- *pb.LogRecord) err
 		var ch = make(chan *pb.LogRecord, lines)
 		select {
 		case <-ctx.Done():
+			sf.wg.Wait()
 			return ctx.Err()
 		// 读完了
 		case <-sf.readed:
@@ -246,7 +242,7 @@ func (sf *SLSClient) read(ctx context.Context, offset int64, ch chan<- *pb.LogRe
 			continue
 		}
 
-		var bx = []*pb.LogRecord{}
+		var bx []*pb.LogRecord
 		for _, line := range logs.Lines {
 			log, err := sf.decoder.Decode(line)
 			if err != nil {

@@ -29,23 +29,22 @@ func newMergeService() mergeService {
 	}
 }
 
-func (mf *MergeService) Merge(logCh ...<-chan *pb.LogRecord) {
-	mf.rChannels = append(mf.rChannels, logCh...)
+func (ms *MergeService) Merge(logCh ...<-chan *pb.LogRecord) {
+	ms.rChannels = append(ms.rChannels, logCh...)
 }
 
-func (mf *MergeService) Output(ctx context.Context, output chan<- *pb.LogRecord) error {
+func (ms *MergeService) Output(ctx context.Context, output chan<- *pb.LogRecord) error {
 	defer close(output)
 
-	if len(mf.rChannels) == 0 {
+	if len(ms.rChannels) == 0 {
 		return errors.New("invalid option: rChannels is empty")
 	}
 
-	mf.prepareSortLogs()
+	ms.prepareSortLogs()
 
-	for mf.sortLogs.Len() > 0 {
-
-		elem := mf.sortLogs.Front()
-		mf.sortLogs.Remove(elem)
+	for ms.sortLogs.Len() > 0 {
+		elem := ms.sortLogs.Front()
+		ms.sortLogs.Remove(elem)
 
 		minLog := elem.Value.(*indexLog)
 		output <- minLog.LogRecord
@@ -54,7 +53,7 @@ func (mf *MergeService) Output(ctx context.Context, output chan<- *pb.LogRecord)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case c, ok := <-mf.rChannels[minIdx]:
+		case c, ok := <-ms.rChannels[minIdx]:
 			if !ok {
 				continue
 			}
@@ -63,15 +62,15 @@ func (mf *MergeService) Output(ctx context.Context, output chan<- *pb.LogRecord)
 				LogRecord: c,
 				idx:       minIdx,
 			}
-			insertSortedLogs(mf.sortLogs, log)
+			insertSortedLogs(ms.sortLogs, log)
 		}
 	}
 	return nil
 }
 
-func (mf *MergeService) prepareSortLogs() {
+func (ms *MergeService) prepareSortLogs() {
 	var logs = []*indexLog{}
-	for i, subCh := range mf.rChannels {
+	for i, subCh := range ms.rChannels {
 		if val, ok := <-subCh; ok {
 			logs = append(logs, &indexLog{
 				LogRecord: val,
@@ -84,7 +83,7 @@ func (mf *MergeService) prepareSortLogs() {
 	})
 
 	for _, log := range logs {
-		mf.sortLogs.PushBack(log)
+		ms.sortLogs.PushBack(log)
 	}
 }
 
